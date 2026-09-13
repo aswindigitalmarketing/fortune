@@ -36,13 +36,16 @@
   .hint{font-size:13px;color:#667;margin:0 0 14px;line-height:1.5;}
 
   /* Upload zone */
-  .drop{border:2px dashed var(--green);border-radius:12px;background:#f7faf8;
-    padding:34px 20px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;}
+  .drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:2px dashed var(--green);border-radius:12px;background:#f7faf8;
+    padding:34px 20px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;
+    width:100%;overflow:hidden;}
   .drop.over{background:#eef6f0;border-color:var(--green-dark);}
   .drop .big{font-size:16px;font-weight:800;color:var(--green-dark);}
   .drop .small{font-size:13px;color:#778;margin-top:6px;}
-  .drop input{display:none;}
+  .drop input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;}
   .filename{margin-top:12px;font-size:14px;font-weight:600;color:#333;word-break:break-all;}
+  .filename:empty{display:none;}
 
   button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-weight:800;letter-spacing:.4px;transition:filter .15s,background .15s;}
   button:disabled{opacity:.5;cursor:not-allowed;}
@@ -239,8 +242,16 @@
 <canvas id="a4canvas" width="1654" height="2339" style="display:none;"></canvas>
 
 <script>
-pdfjsLib.GTMWorkerSrc = null;
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+// Configure pdf.js worker defensively — if the CDN is slow/blocked, the page
+// must still load and attach its event listeners instead of crashing.
+function configurePdfWorker(){
+  if(window.pdfjsLib && pdfjsLib.GlobalWorkerOptions){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    return true;
+  }
+  return false;
+}
+configurePdfWorker();
 
 const logoImg = document.getElementById('logo');
 let currentFile = null;
@@ -286,14 +297,29 @@ function hideProgress(){ progressEl.classList.remove('show'); progressEl.firstEl
 // ---------- Read button ----------
 readBtn.addEventListener('click', async ()=>{
   if(!currentFile) return;
+  const isPdf = /\.pdf$/i.test(currentFile.name) || currentFile.type==='application/pdf';
+  // Make sure the required libraries actually loaded (CDN could be blocked/slow).
+  if(isPdf && !window.pdfjsLib){
+    showStatus('uploadStatus','err','The PDF reader could not load. Please check your internet connection and refresh the page, then try again.');
+    return;
+  }
+  if(!isPdf && !window.Tesseract){
+    showStatus('uploadStatus','err','The image reader (OCR) could not load. Please check your internet connection and refresh the page, then try again.');
+    return;
+  }
+  configurePdfWorker();
   readBtn.disabled=true;
   try{
     let text='';
-    if(/\.pdf$/i.test(currentFile.name) || currentFile.type==='application/pdf'){
+    if(isPdf){
       showStatus('uploadStatus','info','Reading PDF text from all pages…');
       text = await extractPdfText(currentFile);
       if(text.replace(/\s/g,'').length < 30){
         // Likely a scanned/image PDF — fall back to OCR of rendered pages
+        if(!window.Tesseract){
+          showStatus('uploadStatus','err','This looks like a scanned PDF and needs OCR, but the OCR reader could not load. Please refresh and try again, or upload a text-based PDF.');
+          readBtn.disabled=false; return;
+        }
         showStatus('uploadStatus','warn','This looks like a scanned PDF. Running OCR on each page — this can take a minute…');
         text = await ocrPdfPages(currentFile);
       }
@@ -507,6 +533,10 @@ document.getElementById('generateBtn').addEventListener('click', ()=>{
   const totalNums=data.prizes.reduce((s,p)=>s+p.numbers.length,0);
   if(totalNums===0){ showStatus('reviewStatus','err','No winning numbers entered. Please add the result numbers before generating.'); return; }
   hideStatus('reviewStatus');
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    showStatus('reviewStatus','err','The PDF generator could not load. Please check your internet connection and refresh the page, then try again.');
+    return;
+  }
   generatedMeta=data;
   drawA4(data);
   // show preview image
