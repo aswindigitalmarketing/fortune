@@ -338,7 +338,7 @@ function drawSheet(nums){
   ctx.fillRect(0,0,W,H);
 
   // ---- Full-page grid: no header, no logo ----
-  const margin = 60;                 // small outer page margin
+  const margin = 0;                  // 0% bleed — grid runs to the paper edge
   const gridLeft = margin;
   const gridTop = margin;
   const gridRight = W - margin;
@@ -372,7 +372,7 @@ function drawSheet(nums){
           let ww = wmMax, wh = wmMax;
           if(wr >= 1){ wh = wmMax / wr; } else { ww = wmMax * wr; }
           ctx.save();
-          ctx.globalAlpha = 0.20;                        // watermark opacity (well below 50%)
+          ctx.globalAlpha = 0.40;                        // watermark opacity
           ctx.drawImage(watermarkImg, x + (cellW-ww)/2, y + (cellH-wh)/2, ww, wh);
           ctx.restore();
         }
