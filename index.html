@@ -372,7 +372,7 @@ function drawSheet(nums){
           let ww = wmMax, wh = wmMax;
           if(wr >= 1){ wh = wmMax / wr; } else { ww = wmMax * wr; }
           ctx.save();
-          ctx.globalAlpha = 0.12;                        // watermark opacity (well below 50%)
+          ctx.globalAlpha = 0.20;                        // watermark opacity (well below 50%)
           ctx.drawImage(watermarkImg, x + (cellW-ww)/2, y + (cellH-wh)/2, ww, wh);
           ctx.restore();
         }
