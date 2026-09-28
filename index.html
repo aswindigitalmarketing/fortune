@@ -190,6 +190,125 @@
     .field input{font-size:18px;padding:14px 2px;letter-spacing:2px;}
     header.app .brand{font-size:17px;}
   }
+
+  /* ===================== BUMPER PRIZE ===================== */
+  .bp-hint{font-size:13px;color:#667;margin:0 0 12px;line-height:1.5;}
+  .bp-printnote{font-size:12px;color:#8a6400;background:#fdf6e8;border:1px solid #f0dcae;
+    border-radius:8px;padding:10px 12px;margin-top:14px;line-height:1.5;}
+
+  /* ---- Per-row input table ---- */
+  .bp-table-head{display:grid;grid-template-columns:34px 1fr 1fr 1.4fr 34px;gap:8px;
+    padding:0 2px 6px;font-size:11px;font-weight:800;text-transform:uppercase;
+    letter-spacing:.5px;color:#889;}
+  .bp-row{display:grid;grid-template-columns:34px 1fr 1fr 1.4fr 34px;gap:8px;align-items:center;margin-bottom:8px;}
+  .bp-row .c-no{font-size:13px;font-weight:700;color:#999;text-align:center;}
+  .bp-row input{padding:12px 8px;font-size:18px;font-weight:800;text-align:center;
+    border:2px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);
+    transition:border-color .15s;min-width:0;}
+  .bp-row input.s-series{text-transform:uppercase;letter-spacing:3px;}
+  .bp-row input.s-two{letter-spacing:2px;}
+  .bp-row input.s-four{letter-spacing:3px;}
+  .bp-row input:focus{outline:none;border-color:var(--green);}
+  .bp-row input.invalid{border-color:var(--err);background:#fdf0ef;}
+  .bp-row .c-del{display:flex;align-items:center;justify-content:center;}
+  .bp-row .del-btn{background:#f5e9e8;color:#a4362d;border:none;border-radius:7px;
+    width:34px;height:40px;font-size:18px;font-weight:800;cursor:pointer;line-height:1;}
+  .bp-row .del-btn:hover{background:#efd8d5;}
+
+  /* On-screen Bumper A4 preview: a scaled representation of the real page */
+  .bp-preview-page{
+    width:100%;max-width:520px;margin:0 auto;background:#fff;border:1px solid var(--line);
+    box-shadow:0 4px 18px rgba(0,0,0,.10);
+    aspect-ratio:210/297;                 /* A4 portrait proportion */
+    display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,1fr);
+    overflow:hidden;
+  }
+  .bp-preview-page + .bp-preview-page{margin-top:18px;}
+  .bp-page-label{font-size:12px;color:#889;font-weight:700;text-align:center;margin:14px 0 6px;}
+
+  /* ---- Ticket cell (on-screen preview) ----
+     Layout: left block (SERIES / rule / 2-digit) + huge 4-digit on the right,
+     large faint watermark centered behind everything. Uses cqw units so the
+     scaled preview matches the real mm print proportions. */
+  .bp-cell{
+    position:relative;border:1.5px solid #000;overflow:hidden;background:#fff;
+    display:flex;flex-direction:row;align-items:center;
+    container-type:inline-size;
+  }
+  .bp-cell.empty{border-style:dashed;border-color:#ccc;}
+  .bp-cell .wm{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:96%;opacity:.16;pointer-events:none;z-index:0;
+  }
+  .bp-cell .bp-left{position:relative;z-index:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding-left:4cqw;flex:0 0 22cqw;}
+  .bp-cell .bp-series{font-weight:900;color:#111;line-height:1;font-size:13cqw;letter-spacing:.5px;}
+  .bp-cell .bp-rule{width:13cqw;height:2px;background:#111;margin:1.5cqw 0;}
+  .bp-cell .bp-two{font-weight:900;color:#111;line-height:1;font-size:9cqw;letter-spacing:.5px;}
+  .bp-cell .bp-main{position:relative;z-index:1;flex:1;text-align:center;overflow:hidden;white-space:nowrap;
+    font-weight:900;color:#000;line-height:1;font-size:26cqw;letter-spacing:0;padding-right:2cqw;}
+
+  /* ---- Registration line inside the input card, not the ticket ---- */
+  @media (max-width:560px){
+    .bp-table-head{grid-template-columns:24px 1fr 1fr 1.3fr 30px;gap:6px;font-size:10px;}
+    .bp-row{grid-template-columns:24px 1fr 1fr 1.3fr 30px;gap:6px;}
+    .bp-row input{font-size:16px;padding:12px 4px;letter-spacing:2px;}
+    .bp-row .del-btn{width:30px;}
+  }
+
+  /* ===================== PRINT: exact A4 with 100mm x 50mm boxes ===================== */
+  #bumperPrintRoot{display:none;}
+  @media print{
+    @page{ size:A4 portrait; margin:0; }
+    html,body{ margin:0 !important; padding:0 !important; background:#fff !important; }
+    /* Hide everything on the page… */
+    body > *{ display:none !important; }
+    /* …except the print root */
+    body > #bumperPrintRoot{ display:block !important; }
+
+    #bumperPrintRoot .bp-page{
+      width:210mm; height:297mm; margin:0; padding:0;
+      display:grid;
+      grid-template-columns:100mm 100mm;   /* 2 columns × 100mm = 200mm, centered in 210 */
+      grid-template-rows:repeat(5,50mm);    /* 5 rows × 50mm = 250mm */
+      justify-content:center;               /* center the 200mm block across 210mm */
+      align-content:start;
+      box-sizing:border-box;
+      page-break-after:always;
+      break-after:page;
+      overflow:hidden;
+    }
+    #bumperPrintRoot .bp-page:last-child{ page-break-after:auto; break-after:auto; }
+
+    #bumperPrintRoot .bp-box{
+      width:100mm; height:50mm; box-sizing:border-box;
+      border:1.2mm solid #000;
+      position:relative; overflow:hidden; background:#fff;
+      display:flex; flex-direction:row; align-items:center;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    }
+    #bumperPrintRoot .bp-box .wm{
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:96mm; opacity:.16; pointer-events:none; z-index:0;
+    }
+    #bumperPrintRoot .bp-box .b-left{
+      position:relative; z-index:1; flex:0 0 22mm;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding-left:4mm;
+    }
+    #bumperPrintRoot .bp-box .b-series{
+      font-weight:900; color:#000; font-size:13mm; line-height:1; letter-spacing:.5mm;
+    }
+    #bumperPrintRoot .bp-box .b-rule{ width:13mm; height:1mm; background:#000; margin:1.5mm 0; }
+    #bumperPrintRoot .bp-box .b-two{
+      font-weight:900; color:#000; font-size:9mm; line-height:1; letter-spacing:.5mm;
+    }
+    #bumperPrintRoot .bp-box .b-main{
+      position:relative; z-index:1; flex:1; text-align:center;
+      font-weight:900; color:#000; font-size:26mm; line-height:1; letter-spacing:0;
+      padding-right:2mm; overflow:hidden; white-space:nowrap;
+    }
+  }
 </style>
 </head>
 <body>
@@ -205,7 +324,6 @@
   <nav class="navtabs">
     <a href="#" class="active" id="tab-sheet">18-Number A4 Sheet</a>
     <a href="#" id="tab-bumper">Bumper Prize</a>
-    <a href="kerala.html">Kerala Result Formatter</a>
   </nav>
 
   <!-- ===================== VIEW 1: 18-NUMBER SHEET (existing) ===================== -->
@@ -247,29 +365,26 @@
 
     <div class="card">
       <h2>Enter Bumper Prize Details</h2>
+      <p class="bp-hint">Each row is one independent ticket with its own Series, 2-Digit and 4-Digit number. Leading zeros are kept (0007 stays 0007). Each row becomes one Bumper Prize box.</p>
 
-      <div class="bp-top">
-        <div class="bp-fld">
-          <label for="bpSeries">Series</label>
-          <input id="bpSeries" type="text" inputmode="text" autocomplete="off" maxlength="2" placeholder="AB">
-        </div>
-        <div class="bp-fld">
-          <label for="bpTwo">2-Digit</label>
-          <input id="bpTwo" type="text" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="47">
-        </div>
+      <div class="bp-table-head">
+        <span class="c-no">No.</span>
+        <span class="c-series">Series</span>
+        <span class="c-two">2-Digit</span>
+        <span class="c-four">4-Digit</span>
+        <span class="c-del"></span>
+      </div>
+      <div id="bpRows"></div>
+
+      <div class="paste-row" style="margin-top:12px;">
+        <button class="btn-secondary" id="bpAddRow">+ Add Row</button>
       </div>
 
-      <h2 style="margin-top:22px;">4-Digit Numbers</h2>
-      <p class="bp-hint">Enter one four-digit number per box, or use the paste field below. Leading zeros are kept (0007 stays 0007). Each number becomes one Bumper Prize box.</p>
-      <div class="grid" id="bpGrid"></div>
-      <div class="paste-row" style="margin-top:10px;">
-        <button class="btn-secondary" id="bpAddRow">+ Add More Boxes</button>
-      </div>
-
-      <h2 style="margin-top:22px;">Or Paste 4-Digit Numbers</h2>
-      <textarea id="bpPaste" placeholder="4343,1234,5678,9012,0007,8888"></textarea>
+      <h2 style="margin-top:22px;">Or Paste Rows</h2>
+      <p class="bp-hint">One ticket per line, as <strong>Series, 2-Digit, 4-Digit</strong>. Example:<br>PB,47,4343<br>ER,43,2312</p>
+      <textarea id="bpPaste" placeholder="PB,47,4343&#10;ER,43,2312&#10;AB,27,1353&#10;CD,81,5245"></textarea>
       <div class="paste-row">
-        <button class="btn-secondary" id="bpFillBtn">Fill Boxes From Paste</button>
+        <button class="btn-secondary" id="bpFillBtn">Fill Rows From Paste</button>
       </div>
 
       <div class="actions">
@@ -519,6 +634,251 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     inputs[0].focus();
   }
 });
+
+/* =====================================================================
+   BUMPER PRIZE  — independent module, does not touch the 18-number logic
+   ===================================================================== */
+(function(){
+  const WM_SRC = document.getElementById('watermark').src; // reuse embedded logo
+  const BOXES_PER_PAGE = 10;
+  const START_ROWS = 12;   // initial 4-digit input boxes shown
+
+  // ---- Tab switching ----
+  const viewSheet = document.getElementById('view-sheet');
+  const viewBumper = document.getElementById('view-bumper');
+  const tabSheet = document.getElementById('tab-sheet');
+  const tabBumper = document.getElementById('tab-bumper');
+
+  function showSheet(e){ if(e) e.preventDefault();
+    viewSheet.style.display=''; viewBumper.style.display='none';
+    tabSheet.classList.add('active'); tabBumper.classList.remove('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function showBumper(e){ if(e) e.preventDefault();
+    viewSheet.style.display='none'; viewBumper.style.display='';
+    tabBumper.classList.add('active'); tabSheet.classList.remove('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  tabSheet.addEventListener('click', showSheet);
+  tabBumper.addEventListener('click', showBumper);
+
+  // ---- Per-row input table (each row: Series + 2-Digit + 4-Digit) ----
+  const bpRowsWrap = document.getElementById('bpRows');
+  const bpRows = [];   // each: {row, series, two, four}
+
+  function renumber(){
+    bpRows.forEach((r,i)=>{ r.row.querySelector('.c-no').textContent = String(i+1).padStart(2,'0'); });
+  }
+
+  function addRow(vals){
+    vals = vals || {};
+    const row = document.createElement('div');
+    row.className = 'bp-row';
+    row.innerHTML =
+      `<span class="c-no"></span>`+
+      `<input class="s-series" type="text" inputmode="text" autocomplete="off" maxlength="2" placeholder="AB">`+
+      `<input class="s-two"    type="text" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="47">`+
+      `<input class="s-four"   type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="4343">`+
+      `<span class="c-del"><button type="button" class="del-btn" title="Remove row">×</button></span>`;
+    const series = row.querySelector('.s-series');
+    const two    = row.querySelector('.s-two');
+    const four   = row.querySelector('.s-four');
+
+    series.addEventListener('input', ()=>{
+      series.value = series.value.replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,2);
+      series.classList.remove('invalid');
+      if(series.value.length===2) two.focus();
+    });
+    two.addEventListener('input', ()=>{
+      two.value = two.value.replace(/\D/g,'').slice(0,2);
+      two.classList.remove('invalid');
+      if(two.value.length===2) four.focus();
+    });
+    four.addEventListener('input', ()=>{
+      four.value = four.value.replace(/\D/g,'').slice(0,4);
+      four.classList.remove('invalid');
+    });
+    // paste multiple rows into any 4-digit field
+    four.addEventListener('paste', (e)=>{
+      const t=(e.clipboardData||window.clipboardData).getData('text');
+      if(/\n/.test(t) || /,/.test(t)){ e.preventDefault(); fillFromPaste(t); }
+    });
+
+    row.querySelector('.del-btn').addEventListener('click', ()=>{
+      const idx = bpRows.findIndex(r=>r.row===row);
+      if(idx>-1){ bpRows.splice(idx,1); }
+      row.remove();
+      if(bpRows.length===0) addRow();   // never leave zero rows
+      renumber();
+    });
+
+    if(vals.series) series.value = vals.series;
+    if(vals.two)    two.value    = vals.two;
+    if(vals.four)   four.value   = vals.four;
+
+    bpRowsWrap.appendChild(row);
+    bpRows.push({row, series, two, four});
+    renumber();
+    return {series, two, four};
+  }
+
+  const START_ROWS_N = 6;
+  for(let i=0;i<START_ROWS_N;i++) addRow();
+
+  document.getElementById('bpAddRow').addEventListener('click', ()=>{
+    const r = addRow(); r.series.focus();
+  });
+
+  // ---- Paste parser: "PB,47,4343" (also handles space/tab separators) per line ----
+  function fillFromPaste(text){
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
+    if(lines.length===0) return;
+    const parsed = lines.map(line=>{
+      const parts = line.split(/[\s,;|\t]+/).filter(Boolean);
+      return {
+        series:(parts[0]||'').replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,2),
+        two:   (parts[1]||'').replace(/\D/g,'').slice(0,2),
+        four:  (parts[2]||'').replace(/\D/g,'').slice(0,4)
+      };
+    });
+    // clear existing rows, then load
+    bpRows.length = 0; bpRowsWrap.innerHTML = '';
+    parsed.forEach(v=>addRow(v));
+    if(bpRows.length===0) addRow();
+    renumber();
+  }
+  document.getElementById('bpFillBtn').addEventListener('click', ()=>{
+    const t = document.getElementById('bpPaste').value.trim();
+    if(!t){ bpShowError(['Paste box is empty.']); return; }
+    fillFromPaste(t); bpHideError();
+  });
+
+  // ---- Error box ----
+  const bpErr = document.getElementById('bpErrBox');
+  function bpShowError(list){
+    bpErr.style.background=''; bpErr.style.borderColor=''; bpErr.style.color='';
+    bpErr.innerHTML = '<strong>Please fix the following:</strong><ul>'+list.map(e=>`<li>${e}</li>`).join('')+'</ul>';
+    bpErr.classList.add('show');
+  }
+  function bpHideError(){ bpErr.classList.remove('show'); bpErr.innerHTML=''; }
+
+  // ---- Collect + validate (per row) ----
+  function collectBp(){
+    const errors = [];
+    const tickets = [];
+    let filledRows = 0;
+
+    bpRows.forEach((r,i)=>{
+      const s = r.series.value.trim().toUpperCase();
+      const t = r.two.value.trim();
+      const f = r.four.value.trim();
+      r.series.classList.remove('invalid'); r.two.classList.remove('invalid'); r.four.classList.remove('invalid');
+
+      // fully-empty rows are simply skipped
+      if(!s && !t && !f) return;
+      filledRows++;
+      const no = String(i+1).padStart(2,'0');
+      let rowOk = true;
+      if(!/^[A-Z]{2}$/.test(s)){ errors.push(`Row ${no}: Series must be exactly 2 letters.`); r.series.classList.add('invalid'); rowOk=false; }
+      if(!/^\d{2}$/.test(t)){ errors.push(`Row ${no}: 2-Digit must be exactly 2 digits (00–99).`); r.two.classList.add('invalid'); rowOk=false; }
+      if(!/^\d{4}$/.test(f)){ errors.push(`Row ${no}: 4-Digit must be exactly 4 digits (0000–9999).`); r.four.classList.add('invalid'); rowOk=false; }
+      if(rowOk) tickets.push({series:s, two:t, four:f});
+    });
+
+    if(filledRows===0) errors.push('Enter at least one ticket row (Series, 2-Digit and 4-Digit).');
+    return {tickets, errors};
+  }
+
+  // ---- Build ticket box markup (shared shape, class prefix differs) ----
+  function ticketInner(t, pfx){
+    // pfx 'b' = print (mm), 'bp' = on-screen preview (cqw)
+    return (
+      `<img class="wm" src="${WM_SRC}" alt="">`+
+      `<div class="${pfx}-left">`+
+        `<div class="${pfx}-series">${t.series}</div>`+
+        `<div class="${pfx}-rule"></div>`+
+        `<div class="${pfx}-two">${t.two}</div>`+
+      `</div>`+
+      `<div class="${pfx}-main">${t.four}</div>`
+    );
+  }
+
+  // ---- Build the real-mm print pages + on-screen preview ----
+  function buildBumper(tickets){
+    // 1) PRINT ROOT (exact mm)
+    const root = document.getElementById('bumperPrintRoot');
+    root.innerHTML = '';
+    for(let p=0; p<tickets.length; p+=BOXES_PER_PAGE){
+      const page = document.createElement('div');
+      page.className = 'bp-page';
+      tickets.slice(p, p+BOXES_PER_PAGE).forEach(t=>{
+        const box = document.createElement('div');
+        box.className = 'bp-box';
+        box.innerHTML = ticketInner(t, 'b');
+        page.appendChild(box);
+      });
+      root.appendChild(page);
+    }
+
+    // 2) ON-SCREEN PREVIEW (scaled). Full 10-cell A4 grids, empties dashed.
+    const area = document.getElementById('bpPreviewArea');
+    area.innerHTML = '';
+    const pageCount = Math.max(1, Math.ceil(tickets.length / BOXES_PER_PAGE));
+    for(let pg=0; pg<pageCount; pg++){
+      if(pageCount>1){
+        const lbl=document.createElement('div'); lbl.className='bp-page-label';
+        lbl.textContent=`Page ${pg+1} of ${pageCount}`; area.appendChild(lbl);
+      }
+      const page = document.createElement('div');
+      page.className='bp-preview-page';
+      for(let c=0;c<BOXES_PER_PAGE;c++){
+        const t = tickets[pg*BOXES_PER_PAGE + c];
+        const cell=document.createElement('div');
+        cell.className='bp-cell'+(t?'':' empty');
+        if(t) cell.innerHTML = ticketInner(t, 'bp');
+        page.appendChild(cell);
+      }
+      area.appendChild(page);
+    }
+  }
+
+  // ---- Generate ----
+  document.getElementById('bpGenerateBtn').addEventListener('click', ()=>{
+    const {tickets, errors} = collectBp();
+    if(errors.length){ bpShowError(errors); bpErr.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+    bpHideError();
+    buildBumper(tickets);
+    document.getElementById('bpDlActions').style.display='flex';
+    document.getElementById('bpPrintNote').style.display='block';
+    document.getElementById('bpPreviewArea').scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
+  // ---- Print (print CSS hides everything except #bumperPrintRoot) ----
+  document.getElementById('bpPrintBtn').addEventListener('click', ()=>{
+    if(!document.getElementById('bumperPrintRoot').children.length){ return; }
+    window.print();
+  });
+
+  // ---- Edit / back ----
+  document.getElementById('bpBackBtn').addEventListener('click', ()=>{
+    if(bpRows[0]){ bpRows[0].series.focus(); bpRows[0].series.scrollIntoView({behavior:'smooth',block:'center'}); }
+  });
+
+  // ---- Clear ----
+  document.getElementById('bpClearBtn').addEventListener('click', ()=>{
+    if(confirm('Are you sure you want to clear the Bumper Prize inputs?')){
+      bpRows.length = 0; bpRowsWrap.innerHTML = '';
+      for(let i=0;i<START_ROWS_N;i++) addRow();
+      document.getElementById('bpPaste').value='';
+      bpHideError();
+      document.getElementById('bumperPrintRoot').innerHTML='';
+      document.getElementById('bpPreviewArea').innerHTML='<div class="preview-empty">Your Bumper Prize A4 sheet will appear here.</div>';
+      document.getElementById('bpDlActions').style.display='none';
+      document.getElementById('bpPrintNote').style.display='none';
+      if(bpRows[0]) bpRows[0].series.focus();
+    }
+  });
+})();
 </script>
 </body>
 </html>
