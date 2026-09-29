@@ -502,7 +502,7 @@
 
   </div><!-- /view-daily -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.3</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.4</span></footer>
 </div>
 
 <!-- Daily Result assets: colorful Fortune logo (fixed master asset) + hidden A4 canvas -->
@@ -993,10 +993,10 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   const T = {
     page:   { w:2480, h:3508 },
     margin: 40,                 // outer white margin around the result
-    gap:    22,                 // gap between result and footer divider
+    gap:    10,                 // gap between result and footer (smaller = footer sits higher)
     footerRatio: 0.11,          // footer = ~11% of page height; result gets the other 89%
     sharpen: { amount:0.6, threshold:0 },   // mild unsharp mask (0 = off, ~0.4–0.8 = gentle)
-    logo:   { h:300, gapAfter:34 },   // small logo (~200px wide); gap to divider
+    logo:   { h:250, gapAfter:34 },   // small logo; kept within the footer band so it never crops
     text: {
       gap: 34,                  // gap from divider to text block
       fortune:  { text:'FORTUNE LOTTERIES', size:88, weight:900, color:'#1b5e37' },
@@ -1304,20 +1304,25 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     // text column center
     const colCx = divX + T.text.gap + textColW/2;
 
-    // FORTUNE LOTTERIES
+    // Stack the three text rows as one block, vertically CENTERED on fCy (matches the logo center)
+    const rowGap1 = 14, rowGap2 = 16;
+    const blockH = F.size + rowGap1 + L.size + rowGap2 + pillH;
+    let cursorY = fCy - blockH/2;   // top of the text block
+
+    // FORTUNE LOTTERIES (baseline)
     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
     ctx.fillStyle=F.color; ctx.font=`${F.weight} ${F.size}px Arial, sans-serif`;
-    const fortuneY = fCy - F.size*0.30;
+    const fortuneY = cursorY + F.size;
     ctx.fillText(F.text, colCx, fortuneY);
 
     // KILIMANOOR JN.
     ctx.fillStyle=L.color; ctx.font=`${L.weight} ${L.size}px Arial, sans-serif`;
-    const locY = fortuneY + L.size + 14;
+    const locY = fortuneY + rowGap1 + L.size;
     ctx.fillText(L.text, colCx, locY);
 
     // green phone pill
     const pillX = colCx - pillW/2;
-    const pillY = locY + 16;
+    const pillY = locY + rowGap2;
     const r = pillH/2;
     ctx.fillStyle=T.text.phonePill;
     ctx.beginPath();
