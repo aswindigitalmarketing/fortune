@@ -494,6 +494,7 @@
       <div id="drPreviewArea"><div class="preview-empty">Your Fortune A4 result will appear here.</div></div>
       <div class="dl-actions" id="drDlActions" style="display:none;">
         <button class="btn-primary" id="drDownloadBtn">Download PNG</button>
+        <button class="btn-secondary" id="drPrintBtn">Print A4</button>
         <button class="btn-secondary" id="drShareBtn">Share Result</button>
         <button class="btn-ghost" id="drAgainBtn">Generate Again</button>
       </div>
@@ -501,7 +502,7 @@
 
   </div><!-- /view-daily -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.2</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.3</span></footer>
 </div>
 
 <!-- Daily Result assets: colorful Fortune logo (fixed master asset) + hidden A4 canvas -->
@@ -1375,6 +1376,19 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     if(!generatedUrl) return;
     const a=document.createElement('a'); a.href=generatedUrl; a.download=outName;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  // ---- Print A4 (prints only the generated sheet at exact A4 size) ----
+  document.getElementById('drPrintBtn').addEventListener('click', ()=>{
+    if(!generatedUrl) return;
+    const w = window.open('', '_blank');
+    if(!w){ setStatus('info','Pop-up blocked — allow pop-ups, or use Download PNG then print the saved image.'); return; }
+    w.document.write('<!DOCTYPE html><html><head><title>Fortune Result</title>'+
+      '<style>@page{size:A4 portrait;margin:0;}html,body{margin:0;padding:0;}'+
+      'img{width:100%;height:auto;display:block;}</style></head><body>'+
+      '<img src="'+generatedUrl+'" onload="setTimeout(function(){window.print();},200);">'+
+      '</body></html>');
+    w.document.close();
   });
 
   // ---- Share (Web Share API where available) ----
