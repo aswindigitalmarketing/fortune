@@ -327,6 +327,16 @@
   .status.info{background:#eef4fb;border:1px solid #c9dcf2;color:#1c5296;}
   .status.err{background:#fdf0ef;border:1px solid #f2c9c4;color:var(--err);}
   .status.ok{background:#eef7f0;border:1px solid #c6e4cf;color:#1b6b39;}
+  .dr-cropstage{position:relative;display:inline-block;margin-top:10px;max-width:100%;
+    line-height:0;user-select:none;touch-action:none;}
+  .dr-cropstage img{max-width:100%;max-height:360px;display:block;border:1px solid var(--line);border-radius:8px;}
+  .dr-cropbox{position:absolute;border:2px solid #1b5e37;box-shadow:0 0 0 100vmax rgba(0,0,0,.35);
+    cursor:move;box-sizing:border-box;}
+  .dr-h{position:absolute;width:18px;height:18px;background:#fff;border:2px solid #1b5e37;border-radius:50%;}
+  .dr-h-nw{left:-10px;top:-10px;cursor:nwse-resize;}
+  .dr-h-ne{right:-10px;top:-10px;cursor:nesw-resize;}
+  .dr-h-sw{left:-10px;bottom:-10px;cursor:nesw-resize;}
+  .dr-h-se{right:-10px;bottom:-10px;cursor:nwse-resize;}
   .dr-lockrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .dr-lock{background:#eef7f0;border:1px solid #c6e4cf;color:#1b6b39;font-weight:800;font-size:13px;
     padding:6px 12px;border-radius:20px;letter-spacing:.3px;}
@@ -450,10 +460,25 @@
       <div id="drOriginalWrap" style="display:none;margin-top:16px;">
         <div class="dr-lockrow">
           <span class="dr-lock">🔒 RESULT LOCKED</span>
-          <span class="dr-origlabel">Original result — will not be edited</span>
+          <span class="dr-origlabel">Original result — content is never edited</span>
         </div>
-        <div style="text-align:center;margin-top:10px;">
-          <img id="drOriginal" alt="Original result" style="max-width:100%;max-height:300px;border:1px solid var(--line);border-radius:8px;">
+        <p class="bp-hint" id="drCropHint" style="margin-top:10px;">Optional: drag the box to trim off extra background/edges, then <strong>Apply Crop</strong> — or <strong>Use Full Image</strong> to keep it all.</p>
+        <div id="drCropStage" class="dr-cropstage">
+          <img id="drOriginal" alt="Original result" draggable="false">
+          <div id="drCropBox" class="dr-cropbox">
+            <span class="dr-h dr-h-nw"></span><span class="dr-h dr-h-ne"></span>
+            <span class="dr-h dr-h-sw"></span><span class="dr-h dr-h-se"></span>
+          </div>
+        </div>
+        <div class="paste-row" id="drCropControls" style="margin-top:12px;gap:10px;">
+          <button class="btn-secondary" id="drApplyCrop">Apply Crop</button>
+          <button class="btn-ghost" id="drResetCrop">Reset Box</button>
+          <button class="btn-ghost" id="drFullImage">Use Full Image</button>
+        </div>
+        <div id="drCroppedNote" class="dr-lockrow" style="display:none;margin-top:12px;">
+          <span class="dr-lock" style="background:#eef4fb;border-color:#c9dcf2;color:#1c5296;">✂️ CROPPED</span>
+          <span class="dr-origlabel">Using your cropped area</span>
+          <button class="btn-ghost" id="drUndoCrop" style="padding:6px 12px;">Undo crop</button>
         </div>
       </div>
 
@@ -476,7 +501,7 @@
 
   </div><!-- /view-daily -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.1</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.2</span></footer>
 </div>
 
 <!-- Daily Result assets: colorful Fortune logo (fixed master asset) + hidden A4 canvas -->
@@ -969,6 +994,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     margin: 40,                 // outer white margin around the result
     gap:    22,                 // gap between result and footer divider
     footerRatio: 0.11,          // footer = ~11% of page height; result gets the other 89%
+    sharpen: { amount:0.6, threshold:0 },   // mild unsharp mask (0 = off, ~0.4–0.8 = gentle)
     logo:   { h:300, gapAfter:34 },   // small logo (~200px wide); gap to divider
     text: {
       gap: 34,                  // gap from divider to text block
@@ -996,10 +1022,18 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   const previewArea = document.getElementById('drPreviewArea');
   const dlActions = document.getElementById('drDlActions');
 
-  let resultImg = null;        // locked original (HTMLImageElement)
+  let originalImg = null;      // the full uploaded image (never altered)
+  let resultImg = null;        // what gets composed (full image, or the cropped copy)
   let generatedBlob = null;
   let generatedUrl = null;
   let outName = 'Fortune_Daily_Result.png';
+
+  // crop elements
+  const cropStage = document.getElementById('drCropStage');
+  const cropBox   = document.getElementById('drCropBox');
+  const cropControls = document.getElementById('drCropControls');
+  const croppedNote  = document.getElementById('drCroppedNote');
+  const cropHint     = document.getElementById('drCropHint');
 
   function setStatus(type,msg){ statusEl.className='status show '+type; statusEl.innerHTML=msg; }
   function clearStatus(){ statusEl.className='status'; statusEl.innerHTML=''; }
@@ -1019,11 +1053,18 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     r.onload = ()=>{
       const img = new Image();
       img.onload = ()=>{
+        originalImg = img;
         resultImg = img;
         origImgEl.src = img.src;
         origWrap.style.display='block';
         genBtn.disabled = false;
         replaceBtn.style.display='';
+        // reset crop UI to full-image state
+        cropControls.style.display='flex';
+        croppedNote.style.display='none';
+        cropHint.style.display='';
+        origImgEl.onload = ()=>resetCropBox();
+        setTimeout(resetCropBox, 30);
         filenameEl.textContent = 'Selected: '+f.name+'  ('+img.naturalWidth+'×'+img.naturalHeight+' px)';
         // Gentle low-resolution notice — helps staff upload a sharper source for best print quality.
         if(img.naturalWidth < 1400 || img.naturalHeight < 1900){
@@ -1041,6 +1082,107 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     r.readAsDataURL(f);
   }
 
+  // ---- Crop box (optional) ----
+  // Coordinates are in displayed-image pixels; converted to natural pixels on Apply.
+  function dispRect(){ return origImgEl.getBoundingClientRect(); }
+  function resetCropBox(){
+    const r = origImgEl; const w=r.clientWidth, h=r.clientHeight;
+    if(!w||!h) return;
+    // default box = 90% centered
+    const bw=Math.round(w*0.9), bh=Math.round(h*0.9);
+    setBox((w-bw)/2, (h-bh)/2, bw, bh);
+  }
+  function setBox(x,y,w,h){
+    const iw=origImgEl.clientWidth, ih=origImgEl.clientHeight;
+    w=Math.max(30,Math.min(w,iw)); h=Math.max(30,Math.min(h,ih));
+    x=Math.max(0,Math.min(x,iw-w)); y=Math.max(0,Math.min(y,ih-h));
+    cropBox.style.left=x+'px'; cropBox.style.top=y+'px';
+    cropBox.style.width=w+'px'; cropBox.style.height=h+'px';
+  }
+  function boxVals(){ return {x:parseFloat(cropBox.style.left)||0, y:parseFloat(cropBox.style.top)||0,
+    w:parseFloat(cropBox.style.width)||0, h:parseFloat(cropBox.style.height)||0}; }
+
+  let drag=null;
+  function ptr(e){ const t=e.touches?e.touches[0]:e; return {x:t.clientX,y:t.clientY}; }
+  function startDrag(mode,e){
+    e.preventDefault(); e.stopPropagation();
+    const p=ptr(e), b=boxVals();
+    drag={mode, sx:p.x, sy:p.y, ...b};
+    window.addEventListener('mousemove',onDrag); window.addEventListener('mouseup',endDrag);
+    window.addEventListener('touchmove',onDrag,{passive:false}); window.addEventListener('touchend',endDrag);
+  }
+  function onDrag(e){
+    if(!drag) return; e.preventDefault();
+    const p=ptr(e); const dx=p.x-drag.sx, dy=p.y-drag.sy;
+    if(drag.mode==='move'){ setBox(drag.x+dx, drag.y+dy, drag.w, drag.h); return; }
+    let {x,y,w,h}=drag;
+    if(drag.mode.includes('e')) w=drag.w+dx;
+    if(drag.mode.includes('s')) h=drag.h+dy;
+    if(drag.mode.includes('w')){ w=drag.w-dx; x=drag.x+dx; }
+    if(drag.mode.includes('n')){ h=drag.h-dy; y=drag.y+dy; }
+    setBox(x,y,w,h);
+  }
+  function endDrag(){ drag=null;
+    window.removeEventListener('mousemove',onDrag); window.removeEventListener('mouseup',endDrag);
+    window.removeEventListener('touchmove',onDrag); window.removeEventListener('touchend',endDrag);
+  }
+  cropBox.addEventListener('mousedown',e=>{ if(e.target===cropBox) startDrag('move',e); });
+  cropBox.addEventListener('touchstart',e=>{ if(e.target===cropBox) startDrag('move',e); },{passive:false});
+  [['dr-h-nw','nw'],['dr-h-ne','ne'],['dr-h-sw','sw'],['dr-h-se','se']].forEach(([cls,mode])=>{
+    const el=cropBox.querySelector('.'+cls);
+    el.addEventListener('mousedown',e=>startDrag(mode,e));
+    el.addEventListener('touchstart',e=>startDrag(mode,e),{passive:false});
+  });
+
+  document.getElementById('drResetCrop').addEventListener('click', resetCropBox);
+
+  document.getElementById('drApplyCrop').addEventListener('click', ()=>{
+    if(!originalImg) return;
+    const b=boxVals();
+    const iw=origImgEl.clientWidth, ih=origImgEl.clientHeight;
+    // scale displayed-box -> natural pixels
+    const sx = originalImg.naturalWidth / iw;
+    const sy = originalImg.naturalHeight / ih;
+    const cx=Math.round(b.x*sx), cy=Math.round(b.y*sy);
+    const cw=Math.round(b.w*sx), ch=Math.round(b.h*sy);
+    if(cw<20||ch<20){ setStatus('err','Crop box is too small.'); return; }
+    const cc=document.createElement('canvas'); cc.width=cw; cc.height=ch;
+    cc.getContext('2d').drawImage(originalImg, cx,cy,cw,ch, 0,0,cw,ch);
+    const cropped = new Image();
+    cropped.onload = ()=>{
+      resultImg = cropped;                 // compose from the cropped copy
+      // show cropped result, hide crop tools
+      origImgEl.src = cropped.src;
+      cropBox.style.display='none';
+      cropControls.style.display='none';
+      cropHint.style.display='none';
+      croppedNote.style.display='flex';
+      setStatus('ok','Cropped. You can Generate now, or Undo crop to adjust.');
+    };
+    cropped.src = cc.toDataURL('image/png');
+  });
+
+  document.getElementById('drFullImage').addEventListener('click', ()=>{
+    resultImg = originalImg;
+    cropBox.style.display='none';
+    cropControls.style.display='none';
+    cropHint.style.display='none';
+    croppedNote.style.display='none';
+    clearStatus();
+    setStatus('ok','Using the full image. Ready to Generate.');
+  });
+
+  document.getElementById('drUndoCrop').addEventListener('click', ()=>{
+    resultImg = originalImg;
+    origImgEl.src = originalImg.src;
+    croppedNote.style.display='none';
+    cropControls.style.display='flex';
+    cropHint.style.display='';
+    cropBox.style.display='';
+    setTimeout(resetCropBox, 30);
+    clearStatus();
+  });
+
   function safeName(orig){
     // No OCR — build a safe generic dated filename.
     const d = new Date();
@@ -1049,6 +1191,44 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   }
 
   replaceBtn.addEventListener('click', ()=>{ fileInput.value=''; fileInput.click(); });
+
+  // ---- Mild unsharp mask (non-AI edge sharpening) ----
+  // Sharpens by boosting local edge contrast against a blurred copy. It does not
+  // move, add, or reconstruct any content — it only makes existing edges crisper.
+  function unsharpMask(c, w, h, amount, threshold){
+    if(!amount || amount<=0) return;
+    const src = c.getImageData(0,0,w,h);
+    const s = src.data;
+    // 3x3 box blur (separable, cheap) as the "unsharp" reference
+    const blur = new Uint8ClampedArray(s.length);
+    const tmp = new Uint8ClampedArray(s.length);
+    const idx=(x,y)=>((y*w+x)<<2);
+    // horizontal
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const x0=x>0?x-1:0, x2=x<w-1?x+1:w-1; const o=idx(x,y);
+        for(let ch=0;ch<3;ch++){ tmp[o+ch]=(s[idx(x0,y)+ch]+s[o+ch]+s[idx(x2,y)+ch])/3; }
+        tmp[o+3]=s[o+3];
+      }
+    }
+    // vertical
+    for(let y=0;y<h;y++){
+      const y0=y>0?y-1:0, y2=y<h-1?y+1:h-1;
+      for(let x=0;x<w;x++){
+        const o=idx(x,y);
+        for(let ch=0;ch<3;ch++){ blur[o+ch]=(tmp[idx(x,y0)+ch]+tmp[o+ch]+tmp[idx(x,y2)+ch])/3; }
+        blur[o+3]=s[o+3];
+      }
+    }
+    // out = src + amount*(src - blur), applied only where the edge exceeds threshold
+    for(let i=0;i<s.length;i+=4){
+      for(let ch=0;ch<3;ch++){
+        const d = s[i+ch]-blur[i+ch];
+        if(Math.abs(d) > threshold){ s[i+ch] = s[i+ch] + amount*d; }
+      }
+    }
+    c.putImageData(src,0,0);
+  }
 
   // ---- composition engine ----
   function compose(){
@@ -1079,12 +1259,16 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const dw = Math.round(iw*scale), dh = Math.round(ih*scale);
     const dx = Math.round(availX + (availW-dw)/2);   // center horizontally
     const dy = Math.round(availY + (availH-dh)/2);   // center vertically in result area
-    // Sharpest possible placement: if we're enlarging the source, disable smoothing so
-    // edges/numbers stay crisp; if shrinking a big source, use high-quality smoothing.
-    if(scale > 1){ ctx.imageSmoothingEnabled = false; }
-    else { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; }
-    ctx.drawImage(resultImg, dx, dy, dw, dh);
+
+    // Render the scaled result into an offscreen canvas, apply a MILD unsharp mask
+    // (non-AI edge sharpening — nothing is reconstructed or moved), then draw it on.
+    const off = document.createElement('canvas'); off.width=dw; off.height=dh;
+    const octx = off.getContext('2d');
+    octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
+    octx.drawImage(resultImg, 0, 0, dw, dh);
+    try{ unsharpMask(octx, dw, dh, T.sharpen.amount, T.sharpen.threshold); }catch(e){ /* fallback: leave as-is */ }
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(off, dx, dy);
 
     // ---- compact, centered footer signature ----
 
