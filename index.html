@@ -328,15 +328,37 @@
   .status.err{background:#fdf0ef;border:1px solid #f2c9c4;color:var(--err);}
   .status.ok{background:#eef7f0;border:1px solid #c6e4cf;color:#1b6b39;}
   .dr-cropstage{position:relative;display:inline-block;margin-top:10px;max-width:100%;
-    line-height:0;user-select:none;touch-action:none;}
-  .dr-cropstage img{max-width:100%;max-height:360px;display:block;border:1px solid var(--line);border-radius:8px;}
-  .dr-cropbox{position:absolute;border:2px solid #1b5e37;box-shadow:0 0 0 100vmax rgba(0,0,0,.35);
-    cursor:move;box-sizing:border-box;}
-  .dr-h{position:absolute;width:18px;height:18px;background:#fff;border:2px solid #1b5e37;border-radius:50%;}
-  .dr-h-nw{left:-10px;top:-10px;cursor:nwse-resize;}
-  .dr-h-ne{right:-10px;top:-10px;cursor:nesw-resize;}
-  .dr-h-sw{left:-10px;bottom:-10px;cursor:nesw-resize;}
-  .dr-h-se{right:-10px;bottom:-10px;cursor:nwse-resize;}
+    line-height:0;user-select:none;-webkit-user-select:none;touch-action:none;}
+  .dr-cropstage img{max-width:100%;max-height:420px;display:block;border:1px solid var(--line);border-radius:8px;}
+  .dr-cropbox{position:absolute;border:2px solid #1b5e37;box-shadow:0 0 0 100vmax rgba(0,0,0,.45);
+    cursor:move;box-sizing:border-box;touch-action:none;}
+  /* rule-of-thirds guide lines */
+  .dr-cropbox::before,.dr-cropbox::after{content:"";position:absolute;background:rgba(255,255,255,.55);pointer-events:none;}
+  .dr-cropbox::before{left:33.33%;right:33.33%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.55);border-right:1px solid rgba(255,255,255,.55);background:none;}
+  .dr-cropbox::after{top:33.33%;bottom:33.33%;left:0;right:0;border-top:1px solid rgba(255,255,255,.55);border-bottom:1px solid rgba(255,255,255,.55);background:none;}
+  /* corner handles — large, with a visible grip and a big invisible touch target */
+  .dr-h{position:absolute;width:26px;height:26px;background:#fff;border:3px solid #1b5e37;border-radius:50%;
+    box-shadow:0 1px 4px rgba(0,0,0,.35);z-index:3;}
+  .dr-h::after{content:"";position:absolute;left:-12px;top:-12px;right:-12px;bottom:-12px;}  /* bigger hit area */
+  .dr-h-nw{left:-14px;top:-14px;cursor:nwse-resize;}
+  .dr-h-ne{right:-14px;top:-14px;cursor:nesw-resize;}
+  .dr-h-sw{left:-14px;bottom:-14px;cursor:nesw-resize;}
+  .dr-h-se{right:-14px;bottom:-14px;cursor:nwse-resize;}
+  /* edge handles — drag one side */
+  .dr-e{position:absolute;background:#1b5e37;border:2px solid #fff;border-radius:6px;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+  .dr-e::after{content:"";position:absolute;left:-14px;top:-14px;right:-14px;bottom:-14px;}
+  .dr-e-n{top:-7px;left:50%;transform:translateX(-50%);width:40px;height:12px;cursor:ns-resize;}
+  .dr-e-s{bottom:-7px;left:50%;transform:translateX(-50%);width:40px;height:12px;cursor:ns-resize;}
+  .dr-e-w{left:-7px;top:50%;transform:translateY(-50%);width:12px;height:40px;cursor:ew-resize;}
+  .dr-e-e{right:-7px;top:50%;transform:translateY(-50%);width:12px;height:40px;cursor:ew-resize;}
+  /* live dimension badge */
+  .dr-dim{position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(27,94,55,.92);
+    color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;white-space:nowrap;
+    pointer-events:none;z-index:4;line-height:1.4;}
+  .dr-cropbtns{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+  .dr-cropbtns .btn-primary{width:100%;font-size:17px;padding:16px;}
+  .dr-cropbtns-row{display:flex;gap:10px;}
+  .dr-cropbtns-row .btn-secondary{flex:1;}
   .dr-lockrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .dr-lock{background:#eef7f0;border:1px solid #c6e4cf;color:#1b6b39;font-weight:800;font-size:13px;
     padding:6px 12px;border-radius:20px;letter-spacing:.3px;}
@@ -462,18 +484,25 @@
           <span class="dr-lock">🔒 RESULT LOCKED</span>
           <span class="dr-origlabel">Original result — content is never edited</span>
         </div>
-        <p class="bp-hint" id="drCropHint" style="margin-top:10px;">Optional: drag the box to trim off extra background/edges, then <strong>Apply Crop</strong> — or <strong>Use Full Image</strong> to keep it all.</p>
+        <p class="bp-hint" id="drCropHint" style="margin-top:10px;">Optional: drag the box (or its edges/corners) to trim off extra background, then <strong>Apply Crop</strong> — or <strong>Use Full Image</strong> to keep it all.</p>
         <div id="drCropStage" class="dr-cropstage">
           <img id="drOriginal" alt="Original result" draggable="false">
           <div id="drCropBox" class="dr-cropbox">
-            <span class="dr-h dr-h-nw"></span><span class="dr-h dr-h-ne"></span>
-            <span class="dr-h dr-h-sw"></span><span class="dr-h dr-h-se"></span>
+            <span class="dr-dim" id="drDim"></span>
+            <span class="dr-e dr-e-n" data-mode="n"></span>
+            <span class="dr-e dr-e-s" data-mode="s"></span>
+            <span class="dr-e dr-e-w" data-mode="w"></span>
+            <span class="dr-e dr-e-e" data-mode="e"></span>
+            <span class="dr-h dr-h-nw" data-mode="nw"></span><span class="dr-h dr-h-ne" data-mode="ne"></span>
+            <span class="dr-h dr-h-sw" data-mode="sw"></span><span class="dr-h dr-h-se" data-mode="se"></span>
           </div>
         </div>
-        <div class="paste-row" id="drCropControls" style="margin-top:12px;gap:10px;">
-          <button class="btn-secondary" id="drApplyCrop">Apply Crop</button>
-          <button class="btn-ghost" id="drResetCrop">Reset Box</button>
-          <button class="btn-ghost" id="drFullImage">Use Full Image</button>
+        <div class="dr-cropbtns" id="drCropControls">
+          <button class="btn-primary" id="drApplyCrop">✔ Apply Crop</button>
+          <div class="dr-cropbtns-row">
+            <button class="btn-secondary" id="drResetCrop">Reset Box</button>
+            <button class="btn-secondary" id="drFullImage">Use Full Image</button>
+          </div>
         </div>
         <div id="drCroppedNote" class="dr-lockrow" style="display:none;margin-top:12px;">
           <span class="dr-lock" style="background:#eef4fb;border-color:#c9dcf2;color:#1c5296;">✂️ CROPPED</span>
@@ -502,7 +531,7 @@
 
   </div><!-- /view-daily -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.4</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.6</span></footer>
 </div>
 
 <!-- Daily Result assets: colorful Fortune logo (fixed master asset) + hidden A4 canvas -->
@@ -1084,55 +1113,72 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   }
 
   // ---- Crop box (optional) ----
-  // Coordinates are in displayed-image pixels; converted to natural pixels on Apply.
-  function dispRect(){ return origImgEl.getBoundingClientRect(); }
+  // Box geometry is held in displayed-image CSS pixels; mapped to exact natural
+  // pixels on Apply using the live displayed size (accurate on any zoom/DPR).
+  const MIN = 40;                 // minimum box size in displayed px
+  const dimBadge = document.getElementById('drDim');
+
+  function imgSize(){ return {w:origImgEl.clientWidth, h:origImgEl.clientHeight}; }
   function resetCropBox(){
-    const r = origImgEl; const w=r.clientWidth, h=r.clientHeight;
-    if(!w||!h) return;
-    // default box = 90% centered
-    const bw=Math.round(w*0.9), bh=Math.round(h*0.9);
-    setBox((w-bw)/2, (h-bh)/2, bw, bh);
+    const {w,h}=imgSize(); if(!w||!h) return;
+    const bw=Math.round(w*0.92), bh=Math.round(h*0.92);
+    setBox((w-bw)/2,(h-bh)/2,bw,bh);
   }
   function setBox(x,y,w,h){
-    const iw=origImgEl.clientWidth, ih=origImgEl.clientHeight;
-    w=Math.max(30,Math.min(w,iw)); h=Math.max(30,Math.min(h,ih));
+    const {w:iw,h:ih}=imgSize();
+    w=Math.max(MIN,Math.min(w,iw)); h=Math.max(MIN,Math.min(h,ih));
     x=Math.max(0,Math.min(x,iw-w)); y=Math.max(0,Math.min(y,ih-h));
     cropBox.style.left=x+'px'; cropBox.style.top=y+'px';
     cropBox.style.width=w+'px'; cropBox.style.height=h+'px';
+    updateDim(x,y,w,h);
   }
   function boxVals(){ return {x:parseFloat(cropBox.style.left)||0, y:parseFloat(cropBox.style.top)||0,
     w:parseFloat(cropBox.style.width)||0, h:parseFloat(cropBox.style.height)||0}; }
-
-  let drag=null;
-  function ptr(e){ const t=e.touches?e.touches[0]:e; return {x:t.clientX,y:t.clientY}; }
-  function startDrag(mode,e){
-    e.preventDefault(); e.stopPropagation();
-    const p=ptr(e), b=boxVals();
-    drag={mode, sx:p.x, sy:p.y, ...b};
-    window.addEventListener('mousemove',onDrag); window.addEventListener('mouseup',endDrag);
-    window.addEventListener('touchmove',onDrag,{passive:false}); window.addEventListener('touchend',endDrag);
+  function updateDim(x,y,w,h){
+    if(!originalImg) return;
+    const {w:iw,h:ih}=imgSize();
+    const sx=originalImg.naturalWidth/iw, sy=originalImg.naturalHeight/ih;
+    dimBadge.textContent = Math.round(w*sx)+' × '+Math.round(h*sy)+' px';
   }
-  function onDrag(e){
+
+  // One unified pointer handler (mouse + touch + pen)
+  let drag=null;
+  function stagePoint(e){
+    const r=origImgEl.getBoundingClientRect();
+    return { x:e.clientX-r.left, y:e.clientY-r.top };   // position in displayed-image space
+  }
+  function beginDrag(mode,e){
+    e.preventDefault(); e.stopPropagation();
+    try{ e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); }catch(_){}
+    const b=boxVals(); const p=stagePoint(e);
+    drag={mode, px:p.x, py:p.y, ...b};
+    window.addEventListener('pointermove',moveDrag);
+    window.addEventListener('pointerup',endDrag);
+    window.addEventListener('pointercancel',endDrag);
+  }
+  function moveDrag(e){
     if(!drag) return; e.preventDefault();
-    const p=ptr(e); const dx=p.x-drag.sx, dy=p.y-drag.sy;
+    const p=stagePoint(e); const dx=p.x-drag.px, dy=p.y-drag.py;
+    const {w:iw,h:ih}=imgSize();
     if(drag.mode==='move'){ setBox(drag.x+dx, drag.y+dy, drag.w, drag.h); return; }
-    let {x,y,w,h}=drag;
-    if(drag.mode.includes('e')) w=drag.w+dx;
-    if(drag.mode.includes('s')) h=drag.h+dy;
-    if(drag.mode.includes('w')){ w=drag.w-dx; x=drag.x+dx; }
-    if(drag.mode.includes('n')){ h=drag.h-dy; y=drag.y+dy; }
-    setBox(x,y,w,h);
+    // edges to the opposite side stay fixed; clamp to prevent inversion
+    let left=drag.x, top=drag.y, right=drag.x+drag.w, bottom=drag.y+drag.h;
+    if(drag.mode.includes('e')) right = Math.min(iw, Math.max(left+MIN, drag.x+drag.w+dx));
+    if(drag.mode.includes('w')) left  = Math.max(0,  Math.min(right-MIN, drag.x+dx));
+    if(drag.mode.includes('s')) bottom= Math.min(ih, Math.max(top+MIN,  drag.y+drag.h+dy));
+    if(drag.mode.includes('n')) top   = Math.max(0,  Math.min(bottom-MIN, drag.y+dy));
+    setBox(left, top, right-left, bottom-top);
   }
   function endDrag(){ drag=null;
-    window.removeEventListener('mousemove',onDrag); window.removeEventListener('mouseup',endDrag);
-    window.removeEventListener('touchmove',onDrag); window.removeEventListener('touchend',endDrag);
+    window.removeEventListener('pointermove',moveDrag);
+    window.removeEventListener('pointerup',endDrag);
+    window.removeEventListener('pointercancel',endDrag);
   }
-  cropBox.addEventListener('mousedown',e=>{ if(e.target===cropBox) startDrag('move',e); });
-  cropBox.addEventListener('touchstart',e=>{ if(e.target===cropBox) startDrag('move',e); },{passive:false});
-  [['dr-h-nw','nw'],['dr-h-ne','ne'],['dr-h-sw','sw'],['dr-h-se','se']].forEach(([cls,mode])=>{
-    const el=cropBox.querySelector('.'+cls);
-    el.addEventListener('mousedown',e=>startDrag(mode,e));
-    el.addEventListener('touchstart',e=>startDrag(mode,e),{passive:false});
+  // move by dragging the box body
+  cropBox.addEventListener('pointerdown', e=>{ if(e.target===cropBox || e.target===dimBadge) beginDrag('move',e); });
+  // corner + edge handles carry a data-mode
+  cropBox.querySelectorAll('[data-mode]').forEach(el=>{
+    el.addEventListener('pointerdown', e=>beginDrag(el.getAttribute('data-mode'), e));
   });
 
   document.getElementById('drResetCrop').addEventListener('click', resetCropBox);
@@ -1140,25 +1186,29 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   document.getElementById('drApplyCrop').addEventListener('click', ()=>{
     if(!originalImg) return;
     const b=boxVals();
-    const iw=origImgEl.clientWidth, ih=origImgEl.clientHeight;
-    // scale displayed-box -> natural pixels
+    const {w:iw,h:ih}=imgSize();
     const sx = originalImg.naturalWidth / iw;
     const sy = originalImg.naturalHeight / ih;
-    const cx=Math.round(b.x*sx), cy=Math.round(b.y*sy);
-    const cw=Math.round(b.w*sx), ch=Math.round(b.h*sy);
-    if(cw<20||ch<20){ setStatus('err','Crop box is too small.'); return; }
+    // round to exact source pixels, clamp inside the image
+    let cx=Math.round(b.x*sx), cy=Math.round(b.y*sy);
+    let cw=Math.round(b.w*sx), ch=Math.round(b.h*sy);
+    cx=Math.max(0,Math.min(cx,originalImg.naturalWidth-1));
+    cy=Math.max(0,Math.min(cy,originalImg.naturalHeight-1));
+    cw=Math.max(1,Math.min(cw,originalImg.naturalWidth-cx));
+    ch=Math.max(1,Math.min(ch,originalImg.naturalHeight-cy));
+    if(cw<20||ch<20){ setStatus('err','Crop box is too small — drag it larger.'); return; }
     const cc=document.createElement('canvas'); cc.width=cw; cc.height=ch;
-    cc.getContext('2d').drawImage(originalImg, cx,cy,cw,ch, 0,0,cw,ch);
+    const cctx=cc.getContext('2d'); cctx.imageSmoothingEnabled=false;
+    cctx.drawImage(originalImg, cx,cy,cw,ch, 0,0,cw,ch);
     const cropped = new Image();
     cropped.onload = ()=>{
       resultImg = cropped;                 // compose from the cropped copy
-      // show cropped result, hide crop tools
       origImgEl.src = cropped.src;
       cropBox.style.display='none';
       cropControls.style.display='none';
       cropHint.style.display='none';
       croppedNote.style.display='flex';
-      setStatus('ok','Cropped. You can Generate now, or Undo crop to adjust.');
+      setStatus('ok','Cropped to '+cw+' × '+ch+' px. Generate now, or Undo crop to adjust.');
     };
     cropped.src = cc.toDataURL('image/png');
   });
