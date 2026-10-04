@@ -531,7 +531,7 @@
 
   </div><!-- /view-daily -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.6</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.7</span></footer>
 </div>
 
 <!-- Daily Result assets: colorful Fortune logo (fixed master asset) + hidden A4 canvas -->
@@ -606,15 +606,21 @@ function validate(){
   const nums = getNumbers();
   const errors = [];
   inputs.forEach(inp=>inp.classList.remove('invalid'));
+  let filled = 0;
   nums.forEach((n,i)=>{
     if(n.length===0){
-      errors.push(`Number ${String(i+1).padStart(2,'0')} is missing.`);
-      inputs[i].classList.add('invalid');
-    } else if(!/^\d{4}$/.test(n)){
-      errors.push(`Number ${String(i+1).padStart(2,'0')} must contain exactly 4 digits.`);
+      // empty cell is allowed — it will print as a blank box
+      return;
+    }
+    filled++;
+    if(!/^\d{4}$/.test(n)){
+      errors.push(`Number ${String(i+1).padStart(2,'0')} must contain exactly 4 digits (or leave it blank).`);
       inputs[i].classList.add('invalid');
     }
   });
+  if(filled===0){
+    errors.push('Enter at least one number to generate the sheet.');
+  }
   return {ok: errors.length===0, errors, nums};
 }
 
