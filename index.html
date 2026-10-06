@@ -647,7 +647,7 @@
 
   </div><!-- /view-prize -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v2.9</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v3.1</span></footer>
 </div>
 
 <!-- Prize print root (real-mm A4 landscape, print only) -->
@@ -1694,6 +1694,9 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     else if(d.count>1) prizeLine = `₹${inr(d.prize)} <span class="mult">× ${d.count} TICKETS</span>`;
     else prizeLine = `₹${inr(d.prize)}`;
     const prizeSubLabel = d.type==='set' ? 'WINNING PRIZE (1 SET = 12 TICKETS)' : 'WINNING PRIZE';
+    // TOTAL AMOUNT font — big, but step down for longer amounts so it never overflows
+    const totLen = ('₹'+inr(d.total)).length;   // e.g. "₹60,000"=7, "₹1,00,000"=9
+    let totalFs = totLen<=7?64 : totLen<=9?56 : totLen<=11?46 : 38;
 
     return `<div class="ps">`+
       `<div class="ps-head" style="gap:${px(4)};margin-bottom:${px(3)}">`+
@@ -1710,12 +1713,12 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
         `<div class="ps-nums" style="font-size:${px(numFs)}">${numsStr}</div>`+
       `</div>`+
       `<div class="ps-label" style="font-size:${px(4.5)};margin-bottom:${px(1.5)}">${prizeSubLabel}</div>`+
-      `<div class="ps-prizebox" style="padding:${px(2.5)};margin-bottom:${px(3)}">`+
-        `<div class="ps-prize" style="font-size:${px(18)}">${prizeLine}</div>`+
+      `<div class="ps-prizebox" style="padding:${px(3)};margin-bottom:${px(3)};min-height:${px(28)}">`+
+        `<div class="ps-prize" style="font-size:${px(totalFs*0.62)}">${prizeLine}</div>`+
       `</div>`+
-      `<div class="ps-totalband" style="padding:${px(3)} ${px(5)}">`+
-        `<div class="ps-totallabel" style="font-size:${px(5)};margin-bottom:${px(1)}">TOTAL AMOUNT</div>`+
-        `<div class="ps-total" style="font-size:${px(30)}">₹${inr(d.total)}</div>`+
+      `<div class="ps-totalband" style="padding:${px(3)} ${px(5)};min-height:${px(84)}">`+
+        `<div class="ps-totallabel" style="font-size:${px(5.5)};margin-bottom:${px(1.5)}">TOTAL AMOUNT</div>`+
+        `<div class="ps-total" style="font-size:${px(totalFs)}">₹${inr(d.total)}</div>`+
       `</div>`+
       `<div class="ps-date" style="font-size:${px(4.5)};margin-top:${px(2.5)}">DATE: ${fmtDate(d.date)}</div>`+
     `</div>`;
@@ -1822,16 +1825,20 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     ctx.fillText(numsStr, cx, nbY+nbH/2);
     y = nbY+nbH+mm(6);
 
-    // ----- prize label + box -----
+    // ----- prize label + box (bigger) -----
     label(prizeSubLabel, 4.5, y+mm(4.5)); y+=mm(7);
-    const pbH=mm(24), pbY=y;
+    const pbH=mm(30), pbY=y, boxInnerW=W-2*padX-mm(10);
     roundRect(ctx,padX,pbY,W-2*padX,pbH,mm(4)); ctx.fillStyle='#fdeeee'; ctx.fill();
-    // prize line: ₹x (red) + × n (black)
+    // prize line: ₹x (red) + × n (black) — fit to box width, centered as one unit
     let pMain='₹'+inr(d.prize), pMult='';
     if(d.type==='set') pMult=' × '+SET_SIZE;
     else if(d.count>1) pMult=' × '+d.count+' TICKETS';
-    ctx.textBaseline='middle'; const pfs=mm(17);
+    ctx.textBaseline='middle';
+    let pfs=mm(23);
     ctx.font=`900 ${pfs}px Arial`;
+    while((ctx.measureText(pMain).width + (pMult?ctx.measureText(pMult).width:0)) > boxInnerW && pfs>mm(8)){
+      pfs-=mm(1); ctx.font=`900 ${pfs}px Arial`;
+    }
     const wMain=ctx.measureText(pMain).width, wMult=pMult?ctx.measureText(pMult).width:0;
     const pStart=cx-(wMain+wMult)/2;
     ctx.textAlign='left';
@@ -1839,14 +1846,18 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     if(pMult){ ctx.fillStyle='#111'; ctx.fillText(pMult, pStart+wMain, pbY+pbH/2); }
     y = pbY+pbH+mm(6);
 
-    // ----- total band -----
-    const tbH=mm(58), tbY=y;
+    // ----- total band (bigger) -----
+    const tbH=mm(84), tbY=y;
     roundRect(ctx,padX,tbY,W-2*padX,tbH,mm(5)); ctx.fillStyle='#b1121b'; ctx.fill();
     ctx.fillStyle='#fff'; ctx.textAlign='center';
-    ctx.textBaseline='alphabetic'; ctx.font=`800 ${mm(5)}px Arial`;
-    ctx.fillText('TOTAL AMOUNT', cx, tbY+mm(13));
-    ctx.textBaseline='middle'; ctx.font=`900 ${mm(30)}px Arial`;
-    ctx.fillText('₹'+inr(d.total), cx, tbY+tbH/2+mm(6));
+    ctx.textBaseline='alphabetic'; ctx.font=`800 ${mm(5.5)}px Arial`;
+    ctx.fillText('TOTAL AMOUNT', cx, tbY+mm(17));
+    // total amount — very large, fit to band width
+    const totalStr='₹'+inr(d.total);
+    let tfs=mm(64); ctx.font=`900 ${tfs}px Arial`;
+    while(ctx.measureText(totalStr).width > boxInnerW && tfs>mm(16)){ tfs-=mm(1.5); ctx.font=`900 ${tfs}px Arial`; }
+    ctx.textBaseline='middle';
+    ctx.fillText(totalStr, cx, tbY+tbH/2+mm(11));
     y = tbY+tbH+mm(6);
 
     // ----- date -----
