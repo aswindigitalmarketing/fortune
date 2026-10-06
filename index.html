@@ -407,10 +407,12 @@
     body.printing-prize > *{ display:none !important; }
     body.printing-prize > #prizePrintRoot{ display:block !important; }
     #prizePrintRoot .ps-page{
-      width:297mm; height:210mm; box-sizing:border-box; padding:12mm 16mm;
+      width:297mm; height:210mm; box-sizing:border-box; padding:6mm 14mm;
       page-break-after:always; break-after:page; overflow:hidden;
       -webkit-print-color-adjust:exact; print-color-adjust:exact;
     }
+    /* The sheet must fill the padded page and distribute its blocks so nothing overflows/overlaps */
+    #prizePrintRoot .ps{ height:100%; justify-content:space-between; }
     #prizePrintRoot .ps-page:last-child{ page-break-after:auto; break-after:auto; }
     @page{ size:A4 landscape; margin:0; }
   }
@@ -647,7 +649,7 @@
 
   </div><!-- /view-prize -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v3.1</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v3.4</span></footer>
 </div>
 
 <!-- Prize print root (real-mm A4 landscape, print only) -->
@@ -1685,7 +1687,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const numsStr = d.numbers.join(', ');
     // dynamic number font: shrink as the string gets longer so it never overflows
     const L = numsStr.length;
-    let numFs = L<=6?40 : L<=14?34 : L<=24?26 : L<=38?20 : L<=56?15 : 12;
+    let numFs = L<=6?30 : L<=14?26 : L<=24?20 : L<=38?15 : L<=56?12 : 10;
     // labels
     const numLabel = d.numbers.length>1 ? 'WINNING TICKET NUMBERS' : 'WINNING TICKET NUMBER';
     // prize line: Set => ₹x × 12 ; Individual multi => ₹x × n TICKETS ; single => ₹x
@@ -1696,7 +1698,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const prizeSubLabel = d.type==='set' ? 'WINNING PRIZE (1 SET = 12 TICKETS)' : 'WINNING PRIZE';
     // TOTAL AMOUNT font — big, but step down for longer amounts so it never overflows
     const totLen = ('₹'+inr(d.total)).length;   // e.g. "₹60,000"=7, "₹1,00,000"=9
-    let totalFs = totLen<=7?64 : totLen<=9?56 : totLen<=11?46 : 38;
+    let totalFs = totLen<=7?62 : totLen<=9?52 : totLen<=11?42 : 34;
 
     return `<div class="ps">`+
       `<div class="ps-head" style="gap:${px(4)};margin-bottom:${px(3)}">`+
@@ -1709,14 +1711,14 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
         `</div>`+
       `</div>`+
       `<div class="ps-label" style="font-size:${px(5)};margin-bottom:${px(1.5)}">${numLabel}</div>`+
-      `<div class="ps-numbox" style="padding:${px(3)} ${px(5)};margin-bottom:${px(3)};min-height:${px(26)}">`+
+      `<div class="ps-numbox" style="padding:${px(2.5)} ${px(5)};margin-bottom:${px(1.5)};min-height:${px(28)}">`+
         `<div class="ps-nums" style="font-size:${px(numFs)}">${numsStr}</div>`+
       `</div>`+
       `<div class="ps-label" style="font-size:${px(4.5)};margin-bottom:${px(1.5)}">${prizeSubLabel}</div>`+
-      `<div class="ps-prizebox" style="padding:${px(3)};margin-bottom:${px(3)};min-height:${px(28)}">`+
+      `<div class="ps-prizebox" style="padding:${px(2.5)};margin-bottom:${px(1.5)};min-height:${px(28)}">`+
         `<div class="ps-prize" style="font-size:${px(totalFs*0.62)}">${prizeLine}</div>`+
       `</div>`+
-      `<div class="ps-totalband" style="padding:${px(3)} ${px(5)};min-height:${px(84)}">`+
+      `<div class="ps-totalband" style="padding:${px(3)} ${px(5)};min-height:${px(74)}">`+
         `<div class="ps-totallabel" style="font-size:${px(5.5)};margin-bottom:${px(1.5)}">TOTAL AMOUNT</div>`+
         `<div class="ps-total" style="font-size:${px(totalFs)}">₹${inr(d.total)}</div>`+
       `</div>`+
@@ -1772,7 +1774,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const MM = W/297;                 // px per mm (~11.81)
     const mm = v => v*MM;
     ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
-    const padX=mm(16), padY=mm(12);
+    const padX=mm(14), padY=mm(8);
     const cx = W/2;
     let y = padY;
 
@@ -1815,19 +1817,19 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const prizeSubLabel = d.type==='set' ? 'WINNING PRIZE (1 SET = 12 TICKETS)':'WINNING PRIZE';
 
     // ----- numbers label + box -----
-    label(numLabel, 5, y+mm(5)); y+=mm(8);
-    const nbH=mm(30), nbY=y, nbX=padX, nbW=W-2*padX;
+    label(numLabel, 5, y+mm(5)); y+=mm(7);
+    const nbH=mm(28), nbY=y, nbX=padX, nbW=W-2*padX;
     roundRect(ctx,nbX,nbY,nbW,nbH,mm(4)); ctx.fillStyle='#f3f7f3'; ctx.fill();
     // fit number font
-    let nfs=mm(40); ctx.font=`900 ${nfs}px Arial`;
+    let nfs=mm(28); ctx.font=`900 ${nfs}px Arial`;
     while(ctx.measureText(numsStr).width > nbW-mm(14) && nfs>mm(8)){ nfs-=mm(1.5); ctx.font=`900 ${nfs}px Arial`; }
     ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(numsStr, cx, nbY+nbH/2);
-    y = nbY+nbH+mm(6);
+    y = nbY+nbH+mm(5);
 
     // ----- prize label + box (bigger) -----
-    label(prizeSubLabel, 4.5, y+mm(4.5)); y+=mm(7);
-    const pbH=mm(30), pbY=y, boxInnerW=W-2*padX-mm(10);
+    label(prizeSubLabel, 4.5, y+mm(4.5)); y+=mm(6.5);
+    const pbH=mm(28), pbY=y, boxInnerW=W-2*padX-mm(10);
     roundRect(ctx,padX,pbY,W-2*padX,pbH,mm(4)); ctx.fillStyle='#fdeeee'; ctx.fill();
     // prize line: ₹x (red) + × n (black) — fit to box width, centered as one unit
     let pMain='₹'+inr(d.prize), pMult='';
@@ -1844,21 +1846,27 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     ctx.textAlign='left';
     ctx.fillStyle='#b1121b'; ctx.fillText(pMain, pStart, pbY+pbH/2);
     if(pMult){ ctx.fillStyle='#111'; ctx.fillText(pMult, pStart+wMain, pbY+pbH/2); }
-    y = pbY+pbH+mm(6);
+    y = pbY+pbH+mm(5);
 
-    // ----- total band (bigger) -----
-    const tbH=mm(84), tbY=y;
+    // ----- total band (bigger) — sized so it + date always fit the page -----
+    const dateReserve=mm(9);
+    let tbH=mm(78);
+    const maxTbH = H - padY - dateReserve - y;   // never exceed remaining space
+    if(tbH>maxTbH) tbH=maxTbH;
+    const tbY=y;
     roundRect(ctx,padX,tbY,W-2*padX,tbH,mm(5)); ctx.fillStyle='#b1121b'; ctx.fill();
+    const labGap=mm(14);                         // vertical slot for the TOTAL AMOUNT label
     ctx.fillStyle='#fff'; ctx.textAlign='center';
     ctx.textBaseline='alphabetic'; ctx.font=`800 ${mm(5.5)}px Arial`;
-    ctx.fillText('TOTAL AMOUNT', cx, tbY+mm(17));
-    // total amount — very large, fit to band width
+    ctx.fillText('TOTAL AMOUNT', cx, tbY+mm(13));
+    // total amount — as LARGE as possible, fit to band width AND remaining band height
     const totalStr='₹'+inr(d.total);
-    let tfs=mm(64); ctx.font=`900 ${tfs}px Arial`;
-    while(ctx.measureText(totalStr).width > boxInnerW && tfs>mm(16)){ tfs-=mm(1.5); ctx.font=`900 ${tfs}px Arial`; }
+    const amtSlotH = tbH - labGap;               // height available for the number
+    let tfs=Math.min(mm(72), amtSlotH*0.92); ctx.font=`900 ${tfs}px Arial`;
+    while(ctx.measureText(totalStr).width > boxInnerW && tfs>mm(14)){ tfs-=mm(1.2); ctx.font=`900 ${tfs}px Arial`; }
     ctx.textBaseline='middle';
-    ctx.fillText(totalStr, cx, tbY+tbH/2+mm(11));
-    y = tbY+tbH+mm(6);
+    ctx.fillText(totalStr, cx, tbY+labGap+amtSlotH/2);
+    y = tbY+tbH+mm(5);
 
     // ----- date -----
     ctx.fillStyle='#777'; ctx.font=`700 ${mm(4.5)}px Arial`;
