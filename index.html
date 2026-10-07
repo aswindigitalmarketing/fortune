@@ -399,6 +399,27 @@
   .ps-total{color:#fff;font-weight:900;line-height:1;}
   .ps-date{text-align:center;color:#777;font-weight:700;}
 
+  /* ---- Receipt/slip layout (A4 landscape, fills the page) ---- */
+  .ps-receipt{align-items:center;justify-content:space-between;text-align:center;padding:1cqw 0;}
+  .rc-top{width:100%;}
+  .rc-date{font-weight:900;color:#111;line-height:1;letter-spacing:.5px;}
+  .rc-name{font-weight:900;color:#111;line-height:1.02;letter-spacing:.5px;width:100%;
+    white-space:nowrap;overflow:hidden;text-overflow:clip;}
+  .rc-lines{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .pl-line{font-weight:900;color:#111;line-height:1.15;white-space:nowrap;}
+  .pl-line .pl-x,.pl-line .pl-paren,.pl-line .pl-eq{font-weight:900;color:#111;}
+  .rc-totalpill{background:#d11a1a;color:#fff;display:flex;align-items:baseline;justify-content:center;
+    width:100%;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .rc-tl{font-weight:900;color:#fff;line-height:1;}
+  .rc-tv{font-weight:900;color:#fff;line-height:1;}
+  .rc-foot{display:flex;align-items:center;justify-content:center;width:100%;}
+  .rc-logo{flex:0 0 auto;}
+  .rc-divider{background:#111;flex:0 0 auto;}
+  .rc-brand{display:flex;flex-direction:column;align-items:flex-start;text-align:left;}
+  .rc-bname{color:#1b5e37;font-weight:900;line-height:1;letter-spacing:.3px;}
+  .rc-bsub{color:#111;font-weight:800;line-height:1.1;}
+  .rc-bphone{display:inline-block;background:#1b5e37;color:#fff;font-weight:800;border-radius:999px;}
+
   @media (max-width:560px){ .pz-typetabs{flex-direction:column;} }
 
   /* ---- PRINT: exact A4 landscape ---- */
@@ -407,7 +428,7 @@
     body.printing-prize > *{ display:none !important; }
     body.printing-prize > #prizePrintRoot{ display:block !important; }
     #prizePrintRoot .ps-page{
-      width:297mm; height:210mm; box-sizing:border-box; padding:6mm 14mm;
+      width:297mm; height:210mm; box-sizing:border-box; padding:10mm 14mm;
       page-break-after:always; break-after:page; overflow:hidden;
       -webkit-print-color-adjust:exact; print-color-adjust:exact;
     }
@@ -599,6 +620,11 @@
         </div>
 
         <div class="bp-fld">
+          <label>Lottery Name</label>
+          <input id="pzLotteryName" type="text" autocomplete="off" placeholder="Dhanalekshmi">
+        </div>
+
+        <div class="bp-fld">
           <label>Prize Type</label>
           <div class="pz-typetabs">
             <button type="button" class="pz-type active" data-type="individual" id="pzTypeIndividual">Individual</button>
@@ -650,7 +676,7 @@
 
   </div><!-- /view-prize -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v3.5</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v4.1</span></footer>
 </div>
 
 <!-- Prize print root (real-mm A4 landscape, print only) -->
@@ -1601,6 +1627,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
 
   // elements
   const dateEl = document.getElementById('pzDate');
+  const lotteryNameEl = document.getElementById('pzLotteryName');
   const tIndividual = document.getElementById('pzTypeIndividual');
   const tSet = document.getElementById('pzTypeSet');
   const indFields = document.getElementById('pzIndividualFields');
@@ -1663,6 +1690,12 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
     return d+' '+months[parseInt(m,10)-1]+' '+y;
   }
+  // short dotted date: 2026-10-07 -> 07.10.26
+  function fmtDateDot(iso){
+    if(!iso) return '';
+    const [y,m,d]=iso.split('-');
+    return d+'.'+m+'.'+y.slice(-2);
+  }
 
   // collect + validate
   function collect(){
@@ -1679,62 +1712,71 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
       if(numbers.length===0) errors.push('Enter at least one winning ticket number.');
     }
     if(errors.length) return {errors};
-    // SET: each number = 1 set = 12 tickets, so total tickets = sets × 12
+    // Per-number lines: SET => each number pays prize×12 ; INDIVIDUAL => each number pays prize×1
+    const perMult = prizeType==='set' ? SET_SIZE : 1;
+    const lines = numbers.map(n=>({ num:n, mult:perMult, amount:prize*perMult }));
+    const total = lines.reduce((s,l)=>s+l.amount, 0);
     const sets = numbers.length;
     const count = prizeType==='set' ? sets*SET_SIZE : numbers.length;
-    const total = prize*count;
     return {errors:[], data:{
-      type:prizeType, date:dateEl.value, numbers, prize, count, sets, total
+      type:prizeType, date:dateEl.value, lottery:(lotteryNameEl.value||'').trim(),
+      numbers, prize, perMult, lines, count, sets, total
     }};
   }
 
   // ---- Build the sheet HTML (U = 'cqw' preview or 'mm' print; scale multiplier) ----
   function buildSheet(d, U, s){
     const px=(v)=> (v*s).toFixed(2)+U;
-    const numsStr = d.numbers.join(', ');
-    // dynamic number font: shrink as the string gets longer so it never overflows
-    const L = numsStr.length;
-    let numFs = L<=6?30 : L<=14?26 : L<=24?20 : L<=38?15 : L<=56?12 : 10;
-    // labels
-    const numLabel = d.numbers.length>1 ? 'WINNING TICKET NUMBERS' : 'WINNING TICKET NUMBER';
-    // prize line: Set => ₹x × 12 ; Individual multi => ₹x × n TICKETS ; single => ₹x
-    let prizeLine;
-    if(d.type==='set'){
-      const nSets = d.sets || 1;
-      prizeLine = nSets>1
-        ? `₹${inr(d.prize)} <span class="mult">× ${SET_SIZE} × ${nSets} SETS</span>`
-        : `₹${inr(d.prize)} <span class="mult">× ${SET_SIZE}</span>`;
-    }
-    else if(d.count>1) prizeLine = `₹${inr(d.prize)} <span class="mult">× ${d.count} TICKETS</span>`;
-    else prizeLine = `₹${inr(d.prize)}`;
-    const prizeSubLabel = d.type==='set' ? 'WINNING PRIZE (1 SET = 12 TICKETS)' : 'WINNING PRIZE';
-    // TOTAL AMOUNT font — big, but step down for longer amounts so it never overflows
-    const totLen = ('₹'+inr(d.total)).length;   // e.g. "₹60,000"=7, "₹1,00,000"=9
-    let totalFs = totLen<=7?62 : totLen<=9?52 : totLen<=11?42 : 34;
+    const esc=(t)=> String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const lottery = (d.lottery||'').toUpperCase();
+    const n = d.lines.length;   // how many winning lines
 
-    return `<div class="ps">`+
-      `<div class="ps-head" style="gap:${px(4)};margin-bottom:${px(3)}">`+
-        `<img class="ps-logo" src="${LOGO}" style="height:${px(22)};width:auto">`+
-        `<div class="ps-divider" style="width:${px(0.5)};height:${px(18)};margin:0 ${px(3)}"></div>`+
-        `<div class="ps-brand">`+
-          `<div class="ps-bname" style="font-size:${px(13)};letter-spacing:${px(.2)}">FORTUNE LOTTERIES</div>`+
-          `<div class="ps-bsub" style="font-size:${px(7)}">KILIMANOOR JN.</div>`+
-          `<div class="ps-bphone" style="font-size:${px(5.5)};padding:${px(1)} ${px(4)};margin-top:${px(1.5)}">Ph: 871480 3430</div>`+
+    // ---- Fill the landscape page: scale fonts by line count; keep footer clear ----
+    // date + lottery name (dominant)
+    const nameLen = lottery.length;
+    let nameBase = n<=2?24 : n<=4?21 : n<=6?18 : 15;
+    let nameFs = nameBase;
+    if(nameLen>10) nameFs = nameBase * (10/nameLen);
+    if(nameFs<8) nameFs=8;
+    const dateFs = n<=2?18 : n<=4?16 : 14;
+
+    // winning lines — big, dominant numbers
+    let lineFs = n<=1?26 : n<=2?22 : n<=3?19 : n<=4?16.5 : n<=6?13.5 : n<=8?11 : 9;
+    const lineMargin = n<=2?2.5 : n<=4?1.6 : 1;
+    const multTxt = d.perMult>1 ? ` <span class="pl-x">×</span> ${d.perMult}` : '';
+    const linesHtml = d.lines.map(l=>
+      `<div class="pl-line" style="font-size:${px(lineFs)};margin:${px(lineMargin)} 0">`+
+        `${inr(d.prize)}${multTxt} <span class="pl-paren">(${esc(l.num)})</span> <span class="pl-eq">=</span> ${inr(l.amount)}`+
+      `</div>`
+    ).join('');
+
+    // total pill — very dominant
+    const totStr = inr(d.total)+'/-';
+    let totFs = n<=2?28 : n<=4?24 : n<=6?20 : 17;
+
+    return `<div class="ps ps-receipt">`+
+      // TOP GROUP: date + lottery name
+      `<div class="rc-top">`+
+        `<div class="rc-date" style="font-size:${px(dateFs)}">${fmtDateDot(d.date)}</div>`+
+        `<div class="rc-name" style="font-size:${px(nameFs)};margin-top:${px(2)}">${esc(lottery)}</div>`+
+      `</div>`+
+      // MIDDLE: winning lines
+      `<div class="rc-lines">${linesHtml}</div>`+
+      // TOTAL pill
+      `<div class="rc-totalpill" style="padding:${px(3)} ${px(7)};border-radius:${px(5)}">`+
+        `<span class="rc-tl" style="font-size:${px(totFs*0.66)}">Total&nbsp;-&nbsp;</span>`+
+        `<span class="rc-tv" style="font-size:${px(totFs)}">${totStr}</span>`+
+      `</div>`+
+      // FOOTER brand
+      `<div class="rc-foot" style="gap:${px(4)}">`+
+        `<img class="rc-logo" src="${LOGO}" style="height:${px(22)};width:auto">`+
+        `<div class="rc-divider" style="width:${px(0.6)};height:${px(20)};margin:0 ${px(4)}"></div>`+
+        `<div class="rc-brand">`+
+          `<div class="rc-bname" style="font-size:${px(11)}">FORTUNE LOTTERIES</div>`+
+          `<div class="rc-bsub" style="font-size:${px(7)}">KILIMANOOR JN.</div>`+
+          `<div class="rc-bphone" style="font-size:${px(6)};padding:${px(1)} ${px(5)};margin-top:${px(1.5)}">Ph: 871480 3430</div>`+
         `</div>`+
       `</div>`+
-      `<div class="ps-label" style="font-size:${px(5)};margin-bottom:${px(1.5)}">${numLabel}</div>`+
-      `<div class="ps-numbox" style="padding:${px(2.5)} ${px(5)};margin-bottom:${px(1.5)};min-height:${px(28)}">`+
-        `<div class="ps-nums" style="font-size:${px(numFs)}">${numsStr}</div>`+
-      `</div>`+
-      `<div class="ps-label" style="font-size:${px(4.5)};margin-bottom:${px(1.5)}">${prizeSubLabel}</div>`+
-      `<div class="ps-prizebox" style="padding:${px(2.5)};margin-bottom:${px(1.5)};min-height:${px(28)}">`+
-        `<div class="ps-prize" style="font-size:${px(totalFs*0.62)}">${prizeLine}</div>`+
-      `</div>`+
-      `<div class="ps-totalband" style="padding:${px(3)} ${px(5)};min-height:${px(74)}">`+
-        `<div class="ps-totallabel" style="font-size:${px(5.5)};margin-bottom:${px(1.5)}">TOTAL AMOUNT</div>`+
-        `<div class="ps-total" style="font-size:${px(totalFs)}">₹${inr(d.total)}</div>`+
-      `</div>`+
-      `<div class="ps-date" style="font-size:${px(4.5)};margin-top:${px(2.5)}">DATE: ${fmtDate(d.date)}</div>`+
     `</div>`;
   }
 
@@ -1782,108 +1824,106 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   const pzCanvas = document.getElementById('prizeCanvas');
   const pzLogoImg = document.getElementById('fortuneLogo');
   function drawPrizePNG(d){
+    // LANDSCAPE A4 receipt: 3508 x 2480 (297mm x 210mm @ 300dpi) — fills the page, no overlap
     const W=3508, H=2480, ctx=pzCanvas.getContext('2d');
-    const MM = W/297;                 // px per mm (~11.81)
+    pzCanvas.width=W; pzCanvas.height=H;
+    const MM = W/297;
     const mm = v => v*MM;
     ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
-    const padX=mm(14), padY=mm(8);
-    const cx = W/2;
-    let y = padY;
+    const padX=mm(16), padTop=mm(12), padBot=mm(12);
+    const cx = W/2, innerW = W-2*padX;
+    const n = d.lines.length;
 
-    // ----- header (logo | divider | brand) centered -----
-    const logoH=mm(22);
-    const logoW = pzLogoImg.naturalWidth ? pzLogoImg.naturalWidth*(logoH/pzLogoImg.naturalHeight) : logoH;
-    ctx.font=`900 ${mm(13)}px Arial`; const bnameW=ctx.measureText('FORTUNE LOTTERIES').width;
-    const gap=mm(3), divW=mm(0.6), afterDiv=mm(3);
-    const headW = logoW + mm(3) + divW + afterDiv + bnameW;
-    let hx = cx - headW/2;
-    const headTop = y, headCy = y + logoH/2;
-    // logo
-    try{ if(pzLogoImg.naturalWidth) ctx.drawImage(pzLogoImg, hx, headCy-logoH/2, logoW, logoH); }catch(e){}
-    hx += logoW + mm(3);
-    // divider
-    ctx.fillStyle='#111'; ctx.fillRect(hx, headCy-mm(9), divW, mm(18)); hx += divW + afterDiv;
-    // brand text (left aligned block)
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.fillStyle='#1b5e37'; ctx.font=`900 ${mm(13)}px Arial`;
-    ctx.fillText('FORTUNE LOTTERIES', hx, headCy - mm(3));
-    ctx.fillStyle='#111'; ctx.font=`800 ${mm(7)}px Arial`;
-    ctx.fillText('KILIMANOOR JN.', hx, headCy + mm(6.5));
-    // phone pill
-    ctx.font=`800 ${mm(5.5)}px Arial`;
-    const phTxt='Ph: 871480 3430', phW=ctx.measureText(phTxt).width;
-    const pillH=mm(9), pillW=phW+mm(8), pillX=hx, pillY=headCy+mm(9.5);
-    roundRect(ctx, pillX, pillY, pillW, pillH, pillH/2); ctx.fillStyle='#1b5e37'; ctx.fill();
-    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(phTxt, pillX+pillW/2, pillY+pillH/2+mm(0.3));
-    y = headTop + logoH + mm(3) + pillH*0.2 + mm(3);
+    const lottery=(d.lottery||'').toUpperCase();
+    const multTxt = d.perMult>1 ? ' × '+d.perMult : '';
+    const lineStr = l => inr(d.prize)+multTxt+' ('+l.num+') = '+inr(l.amount);
+    const totStr = inr(d.total)+'/-';
+    const labelStr='Total - ';
 
-    // helper for centered label
-    function label(txt,size,yy){ ctx.fillStyle='#555'; ctx.font=`800 ${mm(size)}px Arial`;
-      ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-      ctx.save(); ctx.letterSpacing && (ctx.letterSpacing=mm(0.6)+'px');
-      ctx.fillText(txt, cx, yy); ctx.restore(); }
+    const logoH=mm(24);
+    const footH=logoH + mm(12);       // logo + phone pill below it
+    const usableH = H - padTop - padBot;
+    const minGap = mm(5);
 
-    const numsStr=d.numbers.join(', ');
-    const numLabel = d.numbers.length>1 ? 'WINNING TICKET NUMBERS':'WINNING TICKET NUMBER';
-    const prizeSubLabel = d.type==='set' ? 'WINNING PRIZE (1 SET = 12 TICKETS)':'WINNING PRIZE';
+    // --- base sizes (ambitious; will be scaled to fit) ---
+    let dfs=mm(n<=2?22:n<=4?19:16);
+    let nfs=mm(n<=2?34:n<=4?28:n<=6?23:19);
+    let lfs=mm(n<=1?38:n<=2?30:n<=3?25:n<=4?21:n<=6?16:n<=8?13:11);
+    let tvfs=mm(n<=2?44:n<=4?36:n<=6?28:23);
 
-    // ----- numbers label + box -----
-    label(numLabel, 5, y+mm(5)); y+=mm(7);
-    const nbH=mm(28), nbY=y, nbX=padX, nbW=W-2*padX;
-    roundRect(ctx,nbX,nbY,nbW,nbH,mm(4)); ctx.fillStyle='#f3f7f3'; ctx.fill();
-    // fit number font
-    let nfs=mm(28); ctx.font=`900 ${nfs}px Arial`;
-    while(ctx.measureText(numsStr).width > nbW-mm(14) && nfs>mm(8)){ nfs-=mm(1.5); ctx.font=`900 ${nfs}px Arial`; }
-    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(numsStr, cx, nbY+nbH/2);
-    y = nbY+nbH+mm(5);
-
-    // ----- prize label + box (bigger) -----
-    label(prizeSubLabel, 4.5, y+mm(4.5)); y+=mm(6.5);
-    const pbH=mm(28), pbY=y, boxInnerW=W-2*padX-mm(10);
-    roundRect(ctx,padX,pbY,W-2*padX,pbH,mm(4)); ctx.fillStyle='#fdeeee'; ctx.fill();
-    // prize line: ₹x (red) + × n (black) — fit to box width, centered as one unit
-    let pMain='₹'+inr(d.prize), pMult='';
-    if(d.type==='set'){ const nSets=d.sets||1; pMult = nSets>1 ? ' × '+SET_SIZE+' × '+nSets+' SETS' : ' × '+SET_SIZE; }
-    else if(d.count>1) pMult=' × '+d.count+' TICKETS';
-    ctx.textBaseline='middle';
-    let pfs=mm(23);
-    ctx.font=`900 ${pfs}px Arial`;
-    while((ctx.measureText(pMain).width + (pMult?ctx.measureText(pMult).width:0)) > boxInnerW && pfs>mm(8)){
-      pfs-=mm(1); ctx.font=`900 ${pfs}px Arial`;
+    function fitWidth(){
+      // lottery name
+      if(lottery){ ctx.font=`900 ${nfs}px Arial`;
+        while(ctx.measureText(lottery).width>innerW && nfs>mm(8)){ nfs-=mm(0.6); ctx.font=`900 ${nfs}px Arial`; } }
+      // lines
+      ctx.font=`900 ${lfs}px Arial`;
+      const widest=()=>{let w=0; d.lines.forEach(l=>{w=Math.max(w,ctx.measureText(lineStr(l)).width);});return w;};
+      while(widest()>innerW && lfs>mm(6)){ lfs-=mm(0.4); ctx.font=`900 ${lfs}px Arial`; }
+      // total pill contents
+      const tw=()=>{ctx.font=`900 ${tvfs*0.66}px Arial`;const wl=ctx.measureText(labelStr).width;
+        ctx.font=`900 ${tvfs}px Arial`;const wv=ctx.measureText(totStr).width;return wl+wv;};
+      while(tw()>innerW-mm(16) && tvfs>mm(9)){ tvfs-=mm(0.5); }
     }
-    const wMain=ctx.measureText(pMain).width, wMult=pMult?ctx.measureText(pMult).width:0;
-    const pStart=cx-(wMain+wMult)/2;
-    ctx.textAlign='left';
-    ctx.fillStyle='#b1121b'; ctx.fillText(pMain, pStart, pbY+pbH/2);
-    if(pMult){ ctx.fillStyle='#111'; ctx.fillText(pMult, pStart+wMain, pbY+pbH/2); }
-    y = pbY+pbH+mm(5);
+    function contentHeight(){
+      const dateH=dfs, nameH=lottery?nfs*1.05:0;
+      const topH=dateH + (lottery?mm(4):0) + nameH;
+      const lineGap=lfs*1.32, linesH=n*lineGap;
+      const pillH=tvfs*1.5;
+      return {topH, linesH, lineGap, pillH, total: topH+linesH+pillH+footH};
+    }
+    // --- shrink everything proportionally until it fits with 3 minimum gaps ---
+    fitWidth();
+    let guard=0;
+    while(contentHeight().total + 3*minGap > usableH && guard<200){
+      dfs*=0.97; nfs*=0.97; lfs*=0.97; tvfs*=0.97; guard++;
+      fitWidth();
+    }
+    const ch=contentHeight();
+    let gap=(usableH - ch.total)/3;
+    if(gap<minGap) gap=minGap;
 
-    // ----- total band (bigger) — sized so it + date always fit the page -----
-    const dateReserve=mm(9);
-    let tbH=mm(78);
-    const maxTbH = H - padY - dateReserve - y;   // never exceed remaining space
-    if(tbH>maxTbH) tbH=maxTbH;
-    const tbY=y;
-    roundRect(ctx,padX,tbY,W-2*padX,tbH,mm(5)); ctx.fillStyle='#b1121b'; ctx.fill();
-    const labGap=mm(14);                         // vertical slot for the TOTAL AMOUNT label
-    ctx.fillStyle='#fff'; ctx.textAlign='center';
-    ctx.textBaseline='alphabetic'; ctx.font=`800 ${mm(5.5)}px Arial`;
-    ctx.fillText('TOTAL AMOUNT', cx, tbY+mm(13));
-    // total amount — as LARGE as possible, fit to band width AND remaining band height
-    const totalStr='₹'+inr(d.total);
-    const amtSlotH = tbH - labGap;               // height available for the number
-    let tfs=Math.min(mm(72), amtSlotH*0.92); ctx.font=`900 ${tfs}px Arial`;
-    while(ctx.measureText(totalStr).width > boxInnerW && tfs>mm(14)){ tfs-=mm(1.2); ctx.font=`900 ${tfs}px Arial`; }
-    ctx.textBaseline='middle';
-    ctx.fillText(totalStr, cx, tbY+labGap+amtSlotH/2);
-    y = tbY+tbH+mm(5);
+    let y=padTop;
+    // TOP
+    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.font=`900 ${dfs}px Arial`; ctx.fillText(fmtDateDot(d.date), cx, y+dfs*0.82); y+=dfs;
+    if(lottery){ y+=mm(4); ctx.font=`900 ${nfs}px Arial`; ctx.fillStyle='#111';
+      ctx.fillText(lottery, cx, y+nfs*0.82); y+=nfs*1.05; }
+    y+=gap;
+    // LINES
+    ctx.fillStyle='#111'; ctx.font=`900 ${lfs}px Arial`;
+    d.lines.forEach(l=>{ ctx.fillText(lineStr(l), cx, y+lfs*0.82); y+=ch.lineGap; });
+    y+=gap;
+    // TOTAL pill
+    const pillY=y, pillX=padX, pillW=innerW, pillH=ch.pillH;
+    roundRect(ctx, pillX, pillY, pillW, pillH, mm(5)); ctx.fillStyle='#d11a1a'; ctx.fill();
+    ctx.font=`900 ${tvfs*0.66}px Arial`; const wl=ctx.measureText(labelStr).width;
+    ctx.font=`900 ${tvfs}px Arial`; const wv=ctx.measureText(totStr).width;
+    const groupStart=cx-(wl+wv)/2, baseY=pillY+pillH/2;
+    ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.font=`900 ${tvfs*0.66}px Arial`; ctx.fillText(labelStr, groupStart, baseY+mm(1));
+    ctx.font=`900 ${tvfs}px Arial`; ctx.fillText(totStr, groupStart+wl, baseY);
 
-    // ----- date -----
-    ctx.fillStyle='#777'; ctx.font=`700 ${mm(4.5)}px Arial`;
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    ctx.fillText('DATE: '+fmtDate(d.date), cx, y+mm(4.5));
+    // FOOTER pinned to bottom
+    const logoW = pzLogoImg.naturalWidth ? pzLogoImg.naturalWidth*(logoH/pzLogoImg.naturalHeight) : logoH;
+    ctx.font=`900 ${mm(11)}px Arial`; const bnameW=ctx.measureText('FORTUNE LOTTERIES').width;
+    const divW=mm(0.6), beforeDiv=mm(4), afterDiv=mm(4);
+    const headW=logoW+beforeDiv+divW+afterDiv+bnameW;
+    const footCy=H-padBot-logoH/2;
+    let hx=cx-headW/2;
+    try{ if(pzLogoImg.naturalWidth) ctx.drawImage(pzLogoImg, hx, footCy-logoH/2, logoW, logoH); }catch(e){}
+    hx+=logoW+beforeDiv;
+    ctx.fillStyle='#111'; ctx.fillRect(hx, footCy-mm(10), divW, mm(20)); hx+=divW+afterDiv;
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#1b5e37'; ctx.font=`900 ${mm(11)}px Arial`;
+    ctx.fillText('FORTUNE LOTTERIES', hx, footCy-mm(3));
+    ctx.fillStyle='#111'; ctx.font=`800 ${mm(6.5)}px Arial`;
+    ctx.fillText('KILIMANOOR JN.', hx, footCy+mm(5.5));
+    ctx.font=`800 ${mm(6)}px Arial`;
+    const phTxt='Ph: 871480 3430', phW=ctx.measureText(phTxt).width;
+    const pillH2=mm(9.5), pillW2=phW+mm(10), pillX2=hx, pillY2=footCy+mm(8.5);
+    roundRect(ctx, pillX2, pillY2, pillW2, pillH2, pillH2/2); ctx.fillStyle='#1b5e37'; ctx.fill();
+    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(phTxt, pillX2+pillW2/2, pillY2+pillH2/2+mm(0.3));
 
     return pzCanvas.toDataURL('image/png');
   }
