@@ -618,8 +618,9 @@
         <!-- Set fields -->
         <div id="pzSetFields" style="display:none;">
           <div class="bp-fld">
-            <label>Winning Ticket Number</label>
-            <input id="pzSetNumber" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="5429">
+            <label>Winning Ticket Number(s) — each is 1 set (×12)</label>
+            <input id="pzSetNumber" type="text" inputmode="numeric" autocomplete="off" placeholder="5429  or  5676, 7865">
+            <div class="pz-count" id="pzSetCount"></div>
           </div>
         </div>
 
@@ -649,7 +650,7 @@
 
   </div><!-- /view-prize -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v3.4</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v3.5</span></footer>
 </div>
 
 <!-- Prize print root (real-mm A4 landscape, print only) -->
@@ -1634,7 +1635,11 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const nums = parseNums(indNumbers.value);
     indCount.textContent = nums.length ? (nums.length+' ticket'+(nums.length>1?'s':'')) : '';
   });
-  setNumber.addEventListener('input', ()=>{ setNumber.value = setNumber.value.replace(/\D/g,'').slice(0,4); });
+  const setCount = document.getElementById('pzSetCount');
+  setNumber.addEventListener('input', ()=>{
+    const nums = parseNums(setNumber.value);
+    setCount.textContent = nums.length ? (nums.length+' set'+(nums.length>1?'s':'')+' × 12 = '+(nums.length*SET_SIZE)+' tickets') : '';
+  });
   prizeEl.addEventListener('input', ()=>{ prizeEl.value = prizeEl.value.replace(/[^\d]/g,''); });
 
   function parseNums(s){ return (s||'').split(/[\s,]+/).map(x=>x.replace(/\D/g,'')).filter(x=>x.length>0); }
@@ -1666,18 +1671,20 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     if(!prize || prize<=0) errors.push('Enter a valid winning prize amount.');
     let numbers=[];
     if(prizeType==='set'){
-      const n=setNumber.value.trim();
-      if(!/^\d{3,4}$/.test(n)) errors.push('Enter a valid winning ticket number.');
-      numbers=[n];
+      numbers=parseNums(setNumber.value);
+      if(numbers.length===0) errors.push('Enter at least one winning ticket number.');
+      else if(!numbers.every(n=>/^\d{3,4}$/.test(n))) errors.push('Each winning ticket number must be 3–4 digits.');
     } else {
       numbers=parseNums(indNumbers.value);
       if(numbers.length===0) errors.push('Enter at least one winning ticket number.');
     }
     if(errors.length) return {errors};
-    const count = prizeType==='set' ? SET_SIZE : numbers.length;
+    // SET: each number = 1 set = 12 tickets, so total tickets = sets × 12
+    const sets = numbers.length;
+    const count = prizeType==='set' ? sets*SET_SIZE : numbers.length;
     const total = prize*count;
     return {errors:[], data:{
-      type:prizeType, date:dateEl.value, numbers, prize, count, total
+      type:prizeType, date:dateEl.value, numbers, prize, count, sets, total
     }};
   }
 
@@ -1692,7 +1699,12 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const numLabel = d.numbers.length>1 ? 'WINNING TICKET NUMBERS' : 'WINNING TICKET NUMBER';
     // prize line: Set => ₹x × 12 ; Individual multi => ₹x × n TICKETS ; single => ₹x
     let prizeLine;
-    if(d.type==='set') prizeLine = `₹${inr(d.prize)} <span class="mult">× ${SET_SIZE}</span>`;
+    if(d.type==='set'){
+      const nSets = d.sets || 1;
+      prizeLine = nSets>1
+        ? `₹${inr(d.prize)} <span class="mult">× ${SET_SIZE} × ${nSets} SETS</span>`
+        : `₹${inr(d.prize)} <span class="mult">× ${SET_SIZE}</span>`;
+    }
     else if(d.count>1) prizeLine = `₹${inr(d.prize)} <span class="mult">× ${d.count} TICKETS</span>`;
     else prizeLine = `₹${inr(d.prize)}`;
     const prizeSubLabel = d.type==='set' ? 'WINNING PRIZE (1 SET = 12 TICKETS)' : 'WINNING PRIZE';
@@ -1833,7 +1845,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     roundRect(ctx,padX,pbY,W-2*padX,pbH,mm(4)); ctx.fillStyle='#fdeeee'; ctx.fill();
     // prize line: ₹x (red) + × n (black) — fit to box width, centered as one unit
     let pMain='₹'+inr(d.prize), pMult='';
-    if(d.type==='set') pMult=' × '+SET_SIZE;
+    if(d.type==='set'){ const nSets=d.sets||1; pMult = nSets>1 ? ' × '+SET_SIZE+' × '+nSets+' SETS' : ' × '+SET_SIZE; }
     else if(d.count>1) pMult=' × '+d.count+' TICKETS';
     ctx.textBaseline='middle';
     let pfs=mm(23);
@@ -1890,7 +1902,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   });
 
   document.getElementById('pzClearBtn').addEventListener('click', ()=>{
-    indNumbers.value=''; setNumber.value=''; prizeEl.value=''; indCount.textContent='';
+    indNumbers.value=''; setNumber.value=''; prizeEl.value=''; indCount.textContent=''; setCount.textContent='';
     hideErr();
     document.getElementById('prizePrintRoot').innerHTML='';
     previewArea.innerHTML=''; previewCard.style.display='none'; dlActions.style.display='none';
