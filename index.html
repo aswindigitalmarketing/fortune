@@ -420,7 +420,7 @@
   .ps-date{text-align:center;color:#777;font-weight:700;}
 
   /* ---- Receipt/slip layout (A4 landscape, fills the page) ---- */
-  .ps-receipt{align-items:center;justify-content:space-between;text-align:center;padding:1cqw 0;}
+  .ps-receipt{align-items:center;justify-content:flex-start;text-align:center;padding:1cqw 0;}
   .rc-top{width:100%;}
   .rc-date{font-weight:900;color:#111;line-height:1;letter-spacing:.5px;}
   .rc-name{font-weight:900;color:#111;line-height:1.02;letter-spacing:.5px;width:100%;
@@ -456,7 +456,7 @@
     }
     #prizePrintRoot .ps-page.portrait{ width:210mm; height:297mm; padding:14mm 12mm; }
     /* The sheet must fill the padded page and distribute its blocks so nothing overflows/overlaps */
-    #prizePrintRoot .ps{ height:100%; justify-content:space-between; }
+    #prizePrintRoot .ps{ height:100%; justify-content:flex-start; }
     #prizePrintRoot .ps-page:last-child{ page-break-after:auto; break-after:auto; }
     /* @page size is injected dynamically by #pzPageStyle before printing */
   }
@@ -692,7 +692,7 @@
 
   </div><!-- /view-prize -->
 
-  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v4.4</span></footer>
+  <footer>Fortune Lotteries · Fortune Kilimanoor · T.11887 <span style="opacity:.6;">· v4.6</span></footer>
 </div>
 
 <!-- Prize print root (real-mm A4 landscape, print only) -->
@@ -1790,50 +1790,49 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
 
     const plainLine = (l)=> inr(l.prize)+' × '+l.mult+' ('+l.num+') = '+inr(l.amount);
 
-    // ---- WIDTH FILL: pick the biggest font so the longest line spans ~96% of usable width ----
-    // set lines dominant; individual = indRatio of set size
-    const indRatio = 0.74;
-    const widthFor = (txt, fs)=> textW(txt, fs);
-    // find set-line size by the widest SET line (fallback to widest line)
+    const indRatio = 0.78;
     const setTexts = d.lines.filter(l=>l.isSet).map(plainLine);
     const indTexts = d.lines.filter(l=>!l.isSet).map(plainLine);
     const allTexts = d.lines.map(plainLine);
     const widestOf = arr => arr.reduce((m,t)=>Math.max(m, textW(t,10)/10), 0); // relative width at fs=1
-    const setUnit = widestOf(setTexts.length?setTexts:allTexts);   // width per 1mm font
+    const setUnit = widestOf(setTexts.length?setTexts:allTexts);
     const indUnit = widestOf(indTexts.length?indTexts:[' ']);
-    const targetW = usableW*0.96;
-    // biggest set font that keeps widest set line within targetW; and widest ind line (at indRatio) within targetW
-    let setFs = setUnit>0 ? targetW/setUnit : 30;
-    if(indTexts.length){ const indMax = indUnit>0 ? targetW/(indUnit*indRatio) : setFs; setFs=Math.min(setFs, indMax); }
-    // clamp to a sane maximum so 1-2 short lines don't become absurd
-    setFs = Math.min(setFs, 34);
-    const indFs = setFs*indRatio;
+    const targetW = usableW*0.98;
 
-    // date + lottery name
-    const dateFs = Math.min(portrait?16:18, usableW*0.9/ Math.max(6, (textW(fmtDateDot(d.date),10)/10)) );
-    let nameFs = lottery ? Math.min(portrait?26:30, (usableW*0.96)/Math.max(1,(textW(lottery,10)/10))) : 0;
-    if(nameFs && nameFs<8) nameFs=8;
-
-    // total pill value — fill width strongly
+    // widest-line cap: set font can't exceed what keeps the longest line inside the width
+    let setMaxByW = setUnit>0 ? targetW/setUnit : 60;
+    if(indTexts.length && indUnit>0){ setMaxByW = Math.min(setMaxByW, targetW/(indUnit*indRatio)); }
     const totStr = inr(d.total)+'/-';
     const totUnit = (textW(totStr,10)/10) + (textW('Total - ',10)/10)*0.66;
-    let totFs = totUnit>0 ? Math.min(portrait?40:46, (usableW*0.80)/totUnit) : 30;
+    const dateUnit = textW(fmtDateDot(d.date),10)/10;
+    const nameUnit = lottery ? textW(lottery,10)/10 : 0;
 
-    // ---- HEIGHT GUARD: if everything is too tall, scale all fonts down to fit ----
-    const footMm = (portrait?26:24) + 14;
+    // geometry
+    const footMm = (portrait?24:22) + 13;
     const usableH = PH - 2*padY;
-    const lineMarginMm = n<=2?2.2 : n<=4?1.4 : 0.9;
-    function totalH(sfs, ifs, dfs, nfs, tfs){
-      let lh=0; d.lines.forEach(l=>{ lh += (l.isSet?sfs:ifs)*1.28 + lineMarginMm*2; });
-      const topH = dfs*1.1 + (lottery?nfs*1.1+2:0);
-      const pillH = tfs*1.5;
-      return topH + lh + pillH + footMm + 3*5; // 3 gaps min 5mm
+    const lineMarginMm = 1.1;           // ~1 line gap between winning lines
+    const groupGap = portrait?5:4;      // gap between date-block, lines, total, footer
+
+    // content height as a function of the SET font size (everything scales from it)
+    function heightFor(sfs){
+      const ifs = sfs*indRatio;
+      const dfs = Math.min(sfs*0.72, 18);           // date a bit smaller than set lines
+      const nfs = lottery ? Math.min(sfs*1.05, portrait?30:34) : 0;  // name a touch bigger
+      const tfs = Math.min(sfs*1.25, portrait?46:52);   // total value bigger
+      let lh=0; d.lines.forEach(l=>{ lh += (l.isSet?sfs:ifs)*1.26 + lineMarginMm*2; });
+      const topH = dfs*1.1 + (lottery?nfs*1.12:0);
+      const pillH = tfs*1.55;
+      return {total: topH+lh+pillH+footMm+groupGap*3, dfs, nfs, tfs, ifs};
     }
-    let gguard=0;
-    while(totalH(setFs,indFs,dateFs,nameFs,totFs) > usableH && gguard<300){
-      setFs*=0.97; const r=0.97; nameFs*=r; totFs*=r; gguard++;
-    }
-    const setFsF=setFs, indFsF=setFs*indRatio;
+    // GROW/shrink the set font so content fills the height (tight gaps), capped by width
+    let lo=6, hi=70, setFs=20;
+    for(let i=0;i<40;i++){ const midv=(lo+hi)/2; if(heightFor(midv).total<=usableH) lo=midv; else hi=midv; }
+    setFs = Math.min(lo, setMaxByW);    // never exceed width limit
+    // also make sure total pill / name / date fit width
+    setFs = Math.min(setFs, totUnit>0 ? (usableW*0.9)/(totUnit*1.25) : setFs);
+    if(nameUnit>0) setFs = Math.min(setFs, (usableW*0.98)/(nameUnit*1.05));
+    const geo = heightFor(setFs);
+    const setFsF=setFs, indFsF=setFs*indRatio, dateFs=geo.dfs, nameFs=geo.nfs, totFs=geo.tfs;
 
     const lineHtml = (l)=>{
       const fs = l.isSet ? setFsF : indFsF;
@@ -1849,17 +1848,17 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
       // TOP GROUP: date + lottery name
       `<div class="rc-top">`+
         `<div class="rc-date" style="font-size:${px(dateFs)}">${fmtDateDot(d.date)}</div>`+
-        `<div class="rc-name" style="font-size:${px(nameFs)};margin-top:${px(2)}">${esc(lottery)}</div>`+
+        `<div class="rc-name" style="font-size:${px(nameFs)};margin-top:${px(1.5)}">${esc(lottery)}</div>`+
       `</div>`+
       // MIDDLE: winning lines
-      `<div class="rc-lines">${linesHtml}</div>`+
+      `<div class="rc-lines" style="margin-top:${px(groupGap)}">${linesHtml}</div>`+
       // TOTAL pill
-      `<div class="rc-totalpill" style="padding:${px(3)} ${px(7)};border-radius:${px(5)}">`+
+      `<div class="rc-totalpill" style="padding:${px(3)} ${px(7)};border-radius:${px(5)};margin-top:${px(groupGap)}">`+
         `<span class="rc-tl" style="font-size:${px(totFs*0.66)}">Total&nbsp;-&nbsp;</span>`+
         `<span class="rc-tv" style="font-size:${px(totFs)}">${totStr}</span>`+
       `</div>`+
-      // FOOTER brand
-      `<div class="rc-foot" style="gap:${px(4)}">`+
+      // FOOTER brand (just ~2 lines below the total box)
+      `<div class="rc-foot" style="gap:${px(4)};margin-top:${px(setFsF*0.9)}">`+
         `<img class="rc-logo" src="${LOGO}" style="height:${px(22)};width:auto">`+
         `<div class="rc-divider" style="width:${px(0.6)};height:${px(20)};margin:0 ${px(4)}"></div>`+
         `<div class="rc-brand">`+
@@ -1937,62 +1936,63 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     const totStr = inr(d.total)+'/-';
     const labelStr='Total - ';
 
-    const logoH=mm(portrait?24:24);
-    const footH=logoH + mm(12);
+    const logoH=mm(portrait?24:22);
+    const footH=logoH + mm(13);
     const usableH = H - padTop - padBot;
-    const minGap = mm(5);
-    const indRatio=0.74;
+    const indRatio=0.78;
 
-    // ---- WIDTH FILL: grow set-line font so the widest line spans ~96% of the width ----
-    const targetW = innerW*0.96;
     const unitW = (txt)=>{ ctx.font=`900 100px Arial`; return ctx.measureText(txt).width/100; }; // px per 1px font
+    const targetW = innerW*0.98;
     const setTexts = d.lines.filter(l=>l.isSet).map(lineStr);
     const indTexts = d.lines.filter(l=>!l.isSet).map(lineStr);
     const widestUnit = arr => arr.reduce((m,t)=>Math.max(m, unitW(t)), 0);
     const setU = widestUnit(setTexts.length?setTexts:d.lines.map(lineStr));
     const indU = widestUnit(indTexts);
-    let lfs = setU>0 ? targetW/setU : mm(30);                 // SET font (px)
-    if(indTexts.length && indU>0){ lfs = Math.min(lfs, targetW/(indU*indRatio)); }
-    lfs = Math.min(lfs, mm(34));                              // sane cap
-    const fsOf = l => l.isSet ? lfs : lfs*indRatio;
-
-    // date + name fill width too
-    let dfs = Math.min(mm(portrait?16:18), (innerW*0.9)/Math.max(0.001, unitW(fmtDateDot(d.date))));
-    let nfs = lottery ? Math.min(mm(portrait?26:30), (innerW*0.96)/unitW(lottery)) : 0;
-    // total pill value fills most of the width
+    // max SET font allowed by width
+    let setMaxByW = setU>0 ? targetW/setU : mm(60);
+    if(indTexts.length && indU>0){ setMaxByW = Math.min(setMaxByW, targetW/(indU*indRatio)); }
     const totU = unitW(totStr) + unitW(labelStr)*0.66;
-    let tvfs = Math.min(mm(portrait?40:46), (innerW*0.80)/totU);
+    const dateU = unitW(fmtDateDot(d.date));
+    const nameU = lottery ? unitW(lottery) : 0;
 
-    function linesHeight(){ let h=0; d.lines.forEach(l=>{ h+=fsOf(l)*1.30; }); return h; }
-    function contentHeight(){
-      const topH=dfs*1.05 + (lottery?nfs*1.08+mm(3):0);
-      const pillH=tvfs*1.5;
-      return {topH, linesH:linesHeight(), pillH, total: topH+linesHeight()+pillH+footH};
+    const lineMargin = mm(1.1);       // ~1 line gap
+    const groupGap = mm(portrait?5:4);
+
+    function geomFor(sfs){
+      const ifs=sfs*indRatio;
+      const dfs=Math.min(sfs*0.72, mm(18));
+      const nfs=lottery?Math.min(sfs*1.05, mm(portrait?30:34)):0;
+      const tvfs=Math.min(sfs*1.25, mm(portrait?46:52));
+      let lh=0; d.lines.forEach(l=>{ lh += (l.isSet?sfs:ifs)*1.26 + lineMargin*2; });
+      const topH=dfs*1.1 + (lottery?nfs*1.12:0);
+      const pillH=tvfs*1.55;
+      return {total: topH+lh+pillH+footH+groupGap*3, dfs,nfs,tvfs,ifs,pillH};
     }
-    // ---- HEIGHT GUARD: shrink everything to fit vertically ----
-    let guard=0;
-    while(contentHeight().total + 3*minGap > usableH && guard<400){
-      lfs*=0.98; nfs*=0.98; tvfs*=0.98; dfs*=0.99; guard++;
-    }
-    const ch=contentHeight();
-    let gap=(usableH - ch.total)/3;
-    if(gap<minGap) gap=minGap;
+    // GROW set font via binary search so content fills height; cap by width + total/name width
+    let lo=mm(6), hi=mm(72);
+    for(let i=0;i<44;i++){ const midv=(lo+hi)/2; if(geomFor(midv).total<=usableH) lo=midv; else hi=midv; }
+    let lfs=Math.min(lo, setMaxByW);
+    lfs=Math.min(lfs, totU>0 ? (innerW*0.9)/(totU*1.25) : lfs);
+    if(nameU>0) lfs=Math.min(lfs, (innerW*0.98)/(nameU*1.05));
+    const g=geomFor(lfs);
+    const fsOf = l => l.isSet ? lfs : lfs*indRatio;
+    const dfs=g.dfs, nfs=g.nfs, tvfs=g.tvfs, pillH=g.pillH;
 
     let y=padTop;
     // TOP
     ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    ctx.font=`900 ${dfs}px Arial`; ctx.fillText(fmtDateDot(d.date), cx, y+dfs*0.82); y+=dfs;
-    if(lottery){ y+=mm(4); ctx.font=`900 ${nfs}px Arial`; ctx.fillStyle='#111';
-      ctx.fillText(lottery, cx, y+nfs*0.82); y+=nfs*1.05; }
-    y+=gap;
-    // LINES — SET bigger (black), INDIVIDUAL smaller (dark grey)
+    ctx.font=`900 ${dfs}px Arial`; ctx.fillText(fmtDateDot(d.date), cx, y+dfs*0.82); y+=dfs*1.1;
+    if(lottery){ ctx.font=`900 ${nfs}px Arial`; ctx.fillStyle='#111';
+      ctx.fillText(lottery, cx, y+nfs*0.86); y+=nfs*1.12; }
+    y+=groupGap;
+    // LINES — SET bigger (black), INDIVIDUAL smaller (dark grey), tight gaps
     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
     d.lines.forEach(l=>{ const fs=fsOf(l); ctx.font=`900 ${fs}px Arial`;
       ctx.fillStyle = l.isSet ? '#111' : '#333';
-      ctx.fillText(lineStr(l), cx, y+fs*0.82); y+=fs*1.32; });
-    y+=gap;
+      ctx.fillText(lineStr(l), cx, y+fs*0.82+lineMargin); y+=fs*1.26+lineMargin*2; });
+    y+=groupGap;
     // TOTAL pill
-    const pillY=y, pillX=padX, pillW=innerW, pillH=ch.pillH;
+    const pillY=y, pillX=padX, pillW=innerW;
     roundRect(ctx, pillX, pillY, pillW, pillH, mm(5)); ctx.fillStyle='#d11a1a'; ctx.fill();
     ctx.font=`900 ${tvfs*0.66}px Arial`; const wl=ctx.measureText(labelStr).width;
     ctx.font=`900 ${tvfs}px Arial`; const wv=ctx.measureText(totStr).width;
@@ -2001,12 +2001,15 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
     ctx.font=`900 ${tvfs*0.66}px Arial`; ctx.fillText(labelStr, groupStart, baseY+mm(1));
     ctx.font=`900 ${tvfs}px Arial`; ctx.fillText(totStr, groupStart+wl, baseY);
 
-    // FOOTER pinned to bottom
+    // FOOTER — just ~2 lines below the total box (not pinned to the bottom)
     const logoW = pzLogoImg.naturalWidth ? pzLogoImg.naturalWidth*(logoH/pzLogoImg.naturalHeight) : logoH;
     ctx.font=`900 ${mm(11)}px Arial`; const bnameW=ctx.measureText('FORTUNE LOTTERIES').width;
     const divW=mm(0.6), beforeDiv=mm(4), afterDiv=mm(4);
     const headW=logoW+beforeDiv+divW+afterDiv+bnameW;
-    const footCy=H-padBot-logoH/2;
+    let footTop = pillY + pillH + lfs*0.9;         // ~2 lines after the pill
+    const maxFootTop = H - padBot - logoH;          // never run off the page
+    if(footTop > maxFootTop) footTop = maxFootTop;
+    const footCy = footTop + logoH/2;
     let hx=cx-headW/2;
     try{ if(pzLogoImg.naturalWidth) ctx.drawImage(pzLogoImg, hx, footCy-logoH/2, logoW, logoH); }catch(e){}
     hx+=logoW+beforeDiv;
